@@ -183,7 +183,7 @@ int MParameter::Write(Rope& text, const Rope& name, const Rope& value)
 	// check name is valid
 	// check value is valid, and quote it if necessary
 
-	text += "; ";
+	text += ";\r\n    ";
 	text += name;
 	text += "=";
 
@@ -205,7 +205,7 @@ MParameter::MParameter()
 {
 }
 MParameter::MParameter(const crope& name, const crope& value) :
-		name_	(name),
+		name_	(LowerCase(name)),
 		value_	(value)
 {
 	if(!Write(text_, name_, value_))
@@ -214,6 +214,7 @@ MParameter::MParameter(const crope& name, const crope& value) :
 MParameter::MParameter(Ptr& begin, const Ptr& end)
 {
 	if(Read(begin, end, name_, value_)) {
+		name_ = LowerCase(name_);
 		if(!Write(text_, name_, value_))
 			*this = Null;
 	}
@@ -232,19 +233,19 @@ const crope& MParameter::Text() const
 }
 int MParameter::operator == (const MParameter& r) const
 {
-	return RopeCaseCmp(name_, r.name_) == 0;
+	return name_.compare(r.name_) == 0;
 }
 int MParameter::operator != (const MParameter& r) const
 {
-	return RopeCaseCmp(name_, r.name_) != 0;
+	return name_.compare(r.name_) != 0;
 }
 int MParameter::operator < (const MParameter& r) const
 {
-	return RopeCaseCmp(name_, r.name_) < 0;
+	return name_.compare(r.name_) < 0;
 }
 int MParameter::operator > (const MParameter& r) const
 {
-	return RopeCaseCmp(name_, r.name_) > 0;
+	return name_.compare( r.name_) > 0;
 }
 MParameter::operator const void* () const
 {
@@ -261,12 +262,14 @@ static const MParameter MParameter::Null;
 // ContentType
 //
 
+const MContentType::Rope MContentType::field_name_ = "Content-Type";
+
 int MContentType::EqualTo(const MContentType& r) const
 {
-	if(RopeCaseCmp(type_, r.type_) != 0)
+	if(CaseCompare(type_, r.type_) != 0)
 		return 0;
 
-	if(RopeCaseCmp(subtype_, r.subtype_) != 0)
+	if(CaseCompare(subtype_, r.subtype_) != 0)
 		return 0;
 
 	return 1;
@@ -281,15 +284,17 @@ int MContentType::Index(const Rope& name) const
 	int i = 0;
 	for(; i < sz; ++i)
 	{
-		if(RopeCaseCmp(params_[i].Name(), name) == 0)
+		if(CaseCompare(params_[i].Name(), name) == 0)
 			break;
 	}
 	return i;
 }
 void MContentType::Rewrite()
 {
-	RopeLower(type_);
-	RopeLower(subtype_);
+	type_ = LowerCase(type_);
+	subtype_ = LowerCase(subtype_);
+
+	text_.clear();
 
 	if(!Write(text_, type_, subtype_, params_)) {
 		*this = Null;
@@ -354,6 +359,10 @@ MContentType::MContentType(const Rope& text)
 	if(Read(p, e, type_, subtype_, params_)) {
 		Rewrite();
 	}
+}
+const MContentType::Rope& MContentType::FieldName() const
+{
+	return field_name_;
 }
 const MContentType::Rope& MContentType::Type() const
 {
@@ -424,6 +433,8 @@ const MContentType MContentType::Null;
 // MEncoding
 //
 
+const MEncoding::Rope MEncoding::field_name_ = "Content-Transfer-Encoding";
+
 MEncoding::MEncoding()
 {
 }
@@ -436,8 +447,8 @@ MEncoding::MEncoding(const Rope& encoding)
 
 	if(parser.GetEncoding(p, e, encoding_))
 	{
+		encoding_ = LowerCase(encoding_);
 		text_ = encoding_;
-		RopeLower(text_);
 	}
 }
 MEncoding::MEncoding(Ptr& p, const Ptr& e)
@@ -446,9 +457,13 @@ MEncoding::MEncoding(Ptr& p, const Ptr& e)
 
 	if(parser.GetEncoding(p, e, encoding_))
 	{
+		encoding_ = LowerCase(encoding_);
 		text_ = encoding_;
-		RopeLower(text_);
 	}
+}
+const MEncoding::Rope&	MEncoding::FieldName() const
+{
+	return field_name_;
 }
 const MEncoding::Rope&	MEncoding::Encoding() const
 {
@@ -458,17 +473,18 @@ const MEncoding::Rope&	MEncoding::Text() const
 {
 	return text_;
 }
-int MEncoding::operator == (const MEncoding& e)
+int MEncoding::operator == (const MEncoding& e) const
 {
-	return RopeCaseCmp(encoding_, e.Encoding()) == 0;
+	return encoding_.compare(e.Encoding()) == 0;
 }
-int MEncoding::operator != (const MEncoding& e)
+int MEncoding::operator != (const MEncoding& e) const
 {
-	return RopeCaseCmp(encoding_, e.Encoding()) != 0;
+	return encoding_.compare(e.Encoding()) != 0;
 }
-const MEncoding MEncoding::E7Bit = "7bit";
-const MEncoding MEncoding::E8Bit = "8bit";
-const MEncoding MEncoding::EBinary = "binary";
+
+const MEncoding MEncoding::E7Bit			= "7bit";
+const MEncoding MEncoding::E8Bit			= "8bit";
+const MEncoding MEncoding::EBinary			= "binary";
 const MEncoding MEncoding::EQuotedPrintable = "quoted-printable";
-const MEncoding MEncoding::EBase64 = "base64";
+const MEncoding MEncoding::EBase64			= "base64";
 
