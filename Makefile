@@ -1,15 +1,17 @@
 # Makefile: base64
 
 IDIRS		= -I.. -I/usr/local/include/stl -I/usr/local/include
-CXXFLAGS	= -g2 $(XFLAGS) $(IDIRS) # -Oatx
-LDFLAGS		= -L.. -L/usr/local/lib -M -g
+CXXFLAGS	= -g3d $(XFLAGS) $(IDIRS) -w1 #-WC,-ew -Oatx
+LDFLAGS		= -L.. -L/usr/local/lib -M -g3d
 LDLIBS		= -loptions -lsocket++
 
 SRC			= $(wildcard *.cc)
-OBJ			= msg_822.o parse822.o
+OBJ			= message.o address.o datetime.o mime.o quote.o \
+				drums.o parse822.o parse2045.o \
+				rfc821.o
 LIB			= libmail++.a
-EXE			= maildump mail crope
-DEP			= depends.mak
+EXE			= maildump mail t_crope t_drums t_mime t_quote
+DEP			= .depends
 
 .PHONY: all
 
@@ -27,10 +29,14 @@ lib: $(LIB)
 $(LIB): $(OBJ)
 	ar r -cq $@ $^
 
+MCC		= cc1@lh cc2@lh
+MBCC	= bcc1@lh bcc2@lh
+MTO		= to1@lh to2@lh
+MTOE	= 1to@lh 2to@lh
+MRT		= reply-to@there
+
 test_mail: mail
-	mail -f sam < text | hd -v
-	echo "yeeeeeeeeeeeeeeeeee haaaaaaaaaaahh!!!" | mail -f sam | hd -v
-	mail -f root -r sam@cogent.ca --cc cc1 cc2 cc3 -b ba bb -s "a subject" to1 to2 to3 < _text 
+	mail -f root@localhost -r $(MRT) $(MTO) --cc $(MCC) -b $(MBCC) -s"" $(MTOE) < _text 
 
 test_opts: mail
 	./mail -h
