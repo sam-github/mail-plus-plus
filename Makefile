@@ -1,16 +1,17 @@
-# Makefile: base64
+# Makefile:
 
 IDIRS		= -I.. -I/usr/local/include/stl -I/usr/local/include
 CXXFLAGS	= -g3d $(XFLAGS) $(IDIRS) -w1 #-WC,-ew -Oatx
-LDFLAGS		= -L.. -L/usr/local/lib -M -g3d
+LDFLAGS		= -L.. -L/usr/local/lib -g3d
 LDLIBS		= -loptions -lsocket++
 
 SRC			= $(wildcard *.cc)
-OBJ			= message.o address.o datetime.o mime.o quote.o \
+OBJ			= message.o header.o field.o address.o datetime.o quote.o \
+				mime.o entity.o multipart.o text.o application.o base64.o \
 				drums.o parse822.o parse2045.o \
 				rfc821.o
 LIB			= libmail++.a
-EXE			= maildump mail t_crope t_drums t_mime t_quote
+EXE			= maildump mail
 DEP			= .depends
 
 .PHONY: all
@@ -28,21 +29,6 @@ lib: $(LIB)
 
 $(LIB): $(OBJ)
 	ar r -cq $@ $^
-
-MCC		= cc1@lh cc2@lh
-MBCC	= bcc1@lh bcc2@lh
-MTO		= to1@lh to2@lh
-MTOE	= 1to@lh 2to@lh
-MRT		= reply-to@there
-
-test_mail: mail
-	mail -f root@localhost -r $(MRT) $(MTO) --cc $(MCC) -b $(MBCC) -s"" $(MTOE) < _text 
-
-test_opts: mail
-	./mail -h
-	./mail --help
-	./mail -s "the subject" -a a1 a2 -aa3 -w
-	./mail -aa1 a2 -- t1 t2
 
 clean:
 	rm -f *.o *.map *.err
