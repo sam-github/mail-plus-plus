@@ -10,6 +10,8 @@
 #include <vector>
 
 #include <mail++/msg_822.h>
+#include <mail++/datetime.h>
+#include <mail++/drums.h>
 
 //
 // Options
@@ -17,7 +19,7 @@
 
 const char* optv[] = {
 	"h|help",
-	"m:mesg",
+	"m:mesg       <file>",
 	"B|body",
 	"H|head",
 	"F|fields",
@@ -70,7 +72,8 @@ int main(int argc, const char* argv[])
 			}
 			crope	text;
 
-			file >> text;
+			while(file >> text)
+				; // read all the lines until EOF
 
 			mail = new MMessage(text);
 			if(!mail) {
@@ -109,6 +112,13 @@ int main(int argc, const char* argv[])
 			cout << "--field: "
 				<< "'" << optarg << "' -> "
 				<< "'" << mail->Head().Field(optarg).Value() << "'" << endl;
+
+			if(strcmp(optarg, "date") == 0) {
+				MDateTime dt;
+				MDateTimeParser parser;
+				parser.DateTime(mail->Head().Field(optarg).Value(), dt);
+				cout << "parsed as: " << dt.Text() << endl;
+			}
 		  }	break;
 
 		default:
