@@ -2,30 +2,11 @@
 // An RFC822 format message
 //
 
-#ifndef M_MSG_822_H
-#define M_MSG_822_H
+#ifndef M_MESSAGE_H
+#define M_MESSAGE_H
 
-#include <rope>
+#include <mail++/rope.h>
 #include <vector>
-
-inline istream& operator >> (istream& is, crope& r)
-{
-	int c;
-
-	while((c = is.get()) != EOF) {
-		r.append(c);
-		if(c == '\n')
-			break;
-	}
-
-	return is;
-}
-
-inline void assign(crope& to, crope::const_iterator b, crope::const_iterator e)
-{
-	to.clear();
-	to.append(b, e);
-}
 
 class MField
 {
@@ -35,8 +16,6 @@ private:
 	crope	name_;
 	crope	value_;
 	crope	text_;
-
-	static int StrCmp(const crope& l, const crope& r);
 
 public:
 	MField();

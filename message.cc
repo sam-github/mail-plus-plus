@@ -2,7 +2,7 @@
 //
 //
 
-#include <mail++/msg_822.h>
+#include <mail++/message.h>
 
 #include <assert.h>
 
@@ -23,33 +23,6 @@ inline void rr(const crope::const_iterator& b, const crope::const_iterator& e)
 //
 // MField
 //
-
-	int MField::StrCmp(const crope& l, const crope& r)
-	{
-		struct CaseCmp
-		{
-			int operator () (char l, char r)
-			{
-				char ls[2] = { l, 0 };
-				char rs[2] = { r, 0 };
-				return stricmp(ls, rs);
-			}
-		};
-		rr(l);
-		rr(r);
-		crope::const_iterator
-			lb = l.begin(),
-			le = l.end(),
-			rb = r.begin(),
-			re = r.end();
-
-		// The following expression is copied from the SGI docs for
-		// lexicographical_compare_3way():
-		return
-			lexicographical_compare(lb,le,rb,re,CaseCmp()) ?
-				-1 : (lexicographical_compare (rb,re,lb,le,CaseCmp()) ?
-					1 : 0);
-	}
 
 	MField::MField()
 	{
@@ -137,19 +110,19 @@ inline void rr(const crope::const_iterator& b, const crope::const_iterator& e)
 	}
 	int MField::operator == (const MField& r) const
 	{
-		return StrCmp(Name(), r.Name()) == 0;
+		return RopeCaseCmp(Name(), r.Name()) == 0;
 	}
 	int MField::operator != (const MField& r) const
 	{
-		return StrCmp(Name(), r.Name()) != 0;
+		return RopeCaseCmp(Name(), r.Name()) != 0;
 	}
 	int MField::operator < (const MField& r) const
 	{
-		return StrCmp(Name(), r.Name()) < 0;
+		return RopeCaseCmp(Name(), r.Name()) < 0;
 	}
 	int MField::operator > (const MField& r) const
 	{
-		return StrCmp(Name(), r.Name()) > 0;
+		return RopeCaseCmp(Name(), r.Name()) > 0;
 	}
 	MField::operator const void* () const
 	{
@@ -218,6 +191,8 @@ inline void rr(const crope::const_iterator& b, const crope::const_iterator& e)
 	{
 		text_ = text;
 
+		rr(text);
+
 		crope::const_iterator b = text_.begin();
 		crope::const_iterator e = text_.end();
 
@@ -226,7 +201,7 @@ inline void rr(const crope::const_iterator& b, const crope::const_iterator& e)
 
 			b = field.Read(b, e);
 
-//			rr(field.Name());
+			rr(field.Name());
 
 			if(field)
 				fields_.push_back(field);
