@@ -105,10 +105,10 @@ private:
 	crope	value_;
 	crope	text_;
 
+public:
 	static int Write(Rope& text, const Rope& name, const Rope& value);
 	static int Read(Ptr& begin, const Ptr& end, Rope& name, Rope& value);
 
-public:
 	MParameter();
 	MParameter(const Rope& name, const Rope& value);
 	MParameter(Ptr& begin, const Ptr& end);
@@ -141,6 +141,8 @@ private:
 	typedef crope::const_iterator	Ptr;
 	typedef vector<MParameter> Params;
 
+	static const Rope field_name_;
+
 	Rope	type_;
 	Rope	subtype_;
 
@@ -155,12 +157,12 @@ private:
 
 	void Rewrite();
 
+public:
 	static int Write(Rope& text, const Rope& t, const Rope& st, const Params& pl);
 	static int Read(Ptr& p, const Ptr& e, Rope& t, Rope& st, Params& pl);
 
-public:
 	/**
-	* Constructs a Null-equivalent version object.
+	* Constructs a Null-equivalent content type.
 	*/
 	MContentType();
 	/**
@@ -168,7 +170,7 @@ public:
 	*/
 	MContentType(const Rope& type, const Rope& subtype);
 	/**
-	* Constructs a field with paramaters.
+	* Constructs a field with parameters.
 	*/
 	MContentType(const Rope& type, const Rope& subtype, const Params& params);
 	/**
@@ -180,6 +182,7 @@ public:
 	*/
 	MContentType(const Rope& text);
 
+	const Rope&			FieldName() const;
 	const Rope&			Type() const;
 	const Rope&			SubType() const;
 	const MParameter&	Parameter(int index) const;
@@ -210,6 +213,8 @@ private:
 	typedef crope	Rope;
 	typedef crope::const_iterator	Ptr;
 
+	static const Rope field_name_;
+
 	Rope encoding_;
 	Rope text_;
 
@@ -218,11 +223,12 @@ public:
 	MEncoding(const Rope& encoding);
 	MEncoding(Ptr& p, const Ptr& e);
 
+	const Rope& FieldName() const;
 	const Rope&	Encoding() const;
 	const Rope&	Text() const;
 
-	int operator == (const MEncoding& e);
-	int operator != (const MEncoding& e);
+	int operator == (const MEncoding& e) const;
+	int operator != (const MEncoding& e) const;
 
 	static const MEncoding E7Bit;
 	static const MEncoding E8Bit;
