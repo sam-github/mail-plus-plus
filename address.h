@@ -8,50 +8,29 @@
 #include <rope>
 #include <vector>
 
+class MMailBox;
+
 class MAddrSpec
 {
 private:
-	crope	text_;
-	crope	local_part_;
-	crope	domain_;
+	typedef const crope& Rope;
+
+	crope local_part_;
+	crope domain_;
+
+	crope text_;
+
+	void Build();
 
 public:
-	MAddrSpec()
-	{
-	}
-	// need error checking on validity of input characters, may need
-	// quotes, neither option is optional, perhaps invalid input should
-	// result in a Null addr-spec.
-	MAddrSpec(const crope& local_part, const crope& domain) :
-		local_part_ (local_part), domain_ (domain)
-	{
-		Text();
-	}
+	MAddrSpec();
+	MAddrSpec(const MMailBox& mailbox);
+	MAddrSpec(Rope local_part, Rope domain);
 
-	const crope& Text()
-	{
-		text_.clear();
+	Rope LocalPart() const;
+	Rope Domain() const;
 
-		text_ += local_part_;
-		text_ += "@";
-		text_ += domain_;
-
-		return text_;
-	}
-
-	const crope& Text() const
-	{
-		return text_;
-	}
-
-	const crope& LocalPart() const
-	{
-		return local_part_;
-	}
-	const crope& Domain() const
-	{
-		return domain_;
-	}
+	Rope Text() const;
 };
 
 class MMailBox
@@ -59,92 +38,57 @@ class MMailBox
 private:
 	typedef const crope& Rope;
 
-	crope		local_part_;
-	crope		domain_;
+	MAddrSpec	addr_spec_;
 	crope		display_name_;
 
 	crope		text_;
 
-	Rope Build()
-	{
-		text_.clear();
+	void Build();
 
-		if(!display_name_.empty())
-		{
-			text_ += display_name_;
-			text_ += " <";
-		}
-		text_ += local_part_;
-
-		// This isn't RFC compliant, but is a valid address on most
-		// systems.
-		if(!domain_.empty())
-		{
-			text_ += '@';
-			text_ += domain_;
-		}
-
-		if(!display_name_.empty())
-		{
-			text_ += ">";
-		}
-		return text_;
-	}
 public:
-	MMailBox()
-	{
-	}
-	MMailBox(Rope local_part, Rope domain, Rope display_name = "") :
-		local_part_ (local_part), domain_ (domain), display_name_ (display_name)
-	{
-		Build();
-	}
-	Rope LocalPart() const
-	{
-		return local_part_;
-	}
-	Rope Domain() const
-	{
-		return domain_;
-	}
-	Rope DisplayName() const
-	{
-		return display_name_;
-	}
-	Rope Text() const
-	{
-		return text_;
-	}
+	MMailBox();
+	MMailBox(const MAddrSpec& addr_spec, Rope display_name = "");
+	MMailBox(Rope local_part, Rope domain, Rope display_name = "");
+
+	const MAddrSpec& AddrSpec() const;
+	Rope LocalPart() const;
+	Rope Domain() const;
+	Rope DisplayName() const;
+
+	Rope Text() const;
 };
 
-typedef vector<MMailBox>	MMailBoxList;
+/**
+* A list of mailbox elements.
+*/
+typedef vector<MMailBox> MMailBoxList;
+/**
+* A list of addr-spec elements.
+*/
+typedef vector<MAddrSpec> MAddrSpecList;
 
-template <class T>
-crope MMailBoxListText(T b, T e)
-{
-	crope text;
+crope MAddressListToText(const MAddrSpecList& addrspecs);
+crope MAddressListToText(const MMailBoxList& mailboxes);
 
-	while(b != e)
-	{
-		MMailBox mbox = *b;
+// Do I want to provide a quick-and-dirty validity test
+// for addresses?
+int MCheckAddress(const MAddrSpec& addr_spec);
+int MCheckAddress(const MMailBox& mailbox);
 
-		if(mbox.Text().empty())
-			continue;
-
-		if(!text.empty())
-			text += ", ";
-
-		text += mbox.Text();
-
-		++b;
-	}
-	return text;
-}
-
-crope MMailBoxListText(const MMailBoxList& list)
-{
-	return MMailBoxListText(list.begin(), list.end());
-}
+/**
+* The syntax of local-part is restrictive; if any special characters
+* are used they need to be quoted. This function takes the simple
+* approach of determining if there are any special characters in the
+* local-part, and if so quotes the entire text. If it is already
+* mail safe then no transformation is applied.
+*
+* Note that the .Text() of the address's are all correctly quoted,
+* there is no need to call this on them.
+*
+* @arg local_part is a local-part to be quoted so as to be mail safe.
+* @return the local_part as mail safe text.
+*/
+crope MQuoteLocalPart(const crope& local_part);
 
 #endif
 

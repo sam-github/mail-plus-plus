@@ -11,6 +11,7 @@
 #include <mail++/msg_822.h>
 #include <mail++/address.h>
 #include <mail++/parse822.h>
+#include <mail++/rfc821.h>
 #include <mail++/os.h>
 
 typedef crope String;
@@ -75,13 +76,18 @@ struct TheOptions
 
 TheOptions options;
 
-void RcptTo(smtp& client, const MMessage& mail, const MMailBoxList& addrs)
+int RcptTo(smtp& client, const MMessage& mail, const MMailBoxList& addrs)
 {
+	int count = 0;
+
 	for(MMailBoxList::const_iterator p = addrs.begin();
 		p != addrs.end(); ++p)
 	{
-		client->rcpt(p->Text().c_str());
+		client->rcpt(MMailBoxToSmtpPath(*p).c_str());
+
+		++count;
 	}
+	return count;
 }
 
 //
@@ -111,14 +117,14 @@ int main(int argc, const char* argv[])
 
 	if(!options.to.empty())
 	{
-		mail.Head().Field("To", MMailBoxListText(options.to));
+		mail.Head().Field("To", MAddressListToText(options.to));
 	}
 
 	// Cc:
 
 	if(!options.cc.empty())
 	{
-		mail.Head().Field("Cc", MMailBoxListText(options.cc));
+		mail.Head().Field("Cc", MAddressListToText(options.cc));
 	}
 
 	// Bcc:  Not added to the message, that's the "blind" part!
@@ -157,8 +163,6 @@ int main(int argc, const char* argv[])
 		mail.Body(body);
 	}
 
-	// Force build of mail message into text.
-
 	if(options.dump)
 	{
 		// debug dump
@@ -167,6 +171,13 @@ int main(int argc, const char* argv[])
 	}
 
 	// Connect to the server and send the mail via SMTP.
+
+
+	if((options.to.size() + options.cc.size() + options.bcc.size()) == 0)
+	{
+		cerr << "no need to send this, no addresses provided" << endl;
+		return 1;
+	}
 
 	smtp  client(&cout);
 
@@ -193,7 +204,7 @@ void LogOpt(const char* name, const char* value)
 }
 void Address(MMailBox& mbox, const char* field, const crope& address)
 {
-	if(!MAddressParser().MailBox(mbox, address)) {
+	if(!MAddressParser().MailBox(address, mbox)) {
 		cerr << address << " isn't a valid " << field << " address" << endl;
 		exit(1);
 	}

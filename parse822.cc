@@ -44,6 +44,18 @@
 	{
 		return IsCHAR(c) && !IsSpecial(c) && !IsSPACE(c) && !IsCTL(c);
 	}
+	int MRfc822Tokenizer::IsQText(char c) const
+	{
+		return IsCHAR(c)
+			&& c != '"'
+			&& c != '\\'
+			&& c != '\r';
+	}
+	int MRfc822Tokenizer::IsSmtpQ(char c) const
+	{
+		return IsQText(c)
+			&& c != '\n';
+	}
 
 	//
 	// Lexical Analysis - these tokens are all from RFC822,
@@ -62,7 +74,18 @@
 
 		return ws;
 	}
-	int MRfc822Tokenizer::GetSpecial(char c, Ptr& p, const Ptr& e)
+	int MRfc822Tokenizer::SkipComments(Ptr& p, const Ptr& e)
+	{
+		int comments;
+
+		crope ignored;
+
+		while(GetComment(p, e, ignored))
+			comments++;
+
+		return comments++;
+	}
+	int MRfc822Tokenizer::GetSpecial(Ptr& p, const Ptr& e, char c)
 	{
 		assert(IsSpecial(c));
 
@@ -74,12 +97,12 @@
 		}
 		return 0;
 	}
-	int MRfc822Tokenizer::GetComment(crope& comment, Ptr& p, const Ptr& e)
+	int MRfc822Tokenizer::GetComment(Ptr& p, const Ptr& e, crope& comment)
 	{
 		// comment = "(" *(ctext / quoted-pair / comment) ")"
 		// ctext = <any CHAR except "(", ")", "\", & CR, including LWSP>
 
-		if(!GetSpecial('(', p, e))
+		if(!GetSpecial(p, e, '('))
 			return 0;
 
 		while(p != e)
@@ -92,11 +115,11 @@
 			}
 			else if(c == '(')
 			{
-				GetComment(comment, p, e);
+				GetComment(p, e, comment);
 			}
 			else if(c == '\\')
 			{
-				GetQuotedPair(comment, p, e);
+				GetQuotedPair(p, e, comment);
 			}
 			else if(c == '\r')
 			{
@@ -119,18 +142,8 @@
 		++unterminated_comment_;
 		return 0; // end-of-comment not found
 	}
-	int MRfc822Tokenizer::SkipComments(Ptr& p, const Ptr& e)
-	{
-		int comments;
 
-		crope ignored;
-
-		while(GetComment(ignored, p, e))
-			comments++;
-
-		return comments++;
-	}
-	int MRfc822Tokenizer::GetAtom(crope& atom, Ptr& p, const Ptr& e)
+	int MRfc822Tokenizer::GetAtom(Ptr& p, const Ptr& e, crope& atom)
 	{
 		// atom = 1*<an atom char>
 
@@ -145,7 +158,7 @@
 		}
 		return ok;
 	}
-	int MRfc822Tokenizer::GetQuotedPair(crope& qpair, Ptr& p, const Ptr& e)
+	int MRfc822Tokenizer::GetQuotedPair(Ptr& p, const Ptr& e, crope& qpair)
 	{
 		// quoted-pair = "\" CHAR
 
@@ -165,14 +178,14 @@
 
 		return 1;
 	}
-	int MRfc822Tokenizer::GetQuotedString(crope& qstr, Ptr& p, const Ptr& e)
+	int MRfc822Tokenizer::GetQuotedString(Ptr& p, const Ptr& e, crope& qstr)
 	{
 		// quoted-string = <"> *(qtext/quoted-pair) <">
 		// qtext = CHAR except <">, "\", & CR, including LWSP-char
 
 		SkipComments(p, e);
 
-		if(!GetSpecial('"', p, e))
+		if(!GetSpecial(p, e, '"'))
 			return 0;
 
 		while(p != e)
@@ -185,7 +198,7 @@
 			}
 			else if(c == '\\')
 			{
-				GetQuotedPair(qstr, p, e);
+				GetQuotedPair(p, e, qstr);
 			}
 			else if(c == '\r')
 			{
@@ -208,7 +221,7 @@
 		++unterminated_qstr_;
 		return 0; // end-of-qstr not found
 	}
-	int MRfc822Tokenizer::GetWord(crope& word, Ptr& p, const Ptr& e)
+	int MRfc822Tokenizer::GetWord(Ptr& p, const Ptr& e, crope& word)
 	{
 		// word = atom / quoted-string
 		SkipComments(p, e);
@@ -216,7 +229,7 @@
 		Ptr save = p;
 
 		crope qstr;
-		if(GetQuotedString(qstr, p, e)) {
+		if(GetQuotedString(p, e, qstr)) {
 			word += qstr;
 			return 1;
 		}
@@ -227,7 +240,7 @@
 			// will fail to if the syntax is invalid.
 
 		crope atom;
-		if(GetAtom(atom, p, e)) {
+		if(GetAtom(p, e, atom)) {
 			word += atom;
 			return 1;
 		}
@@ -235,16 +248,16 @@
 
 		return 0;
 	}
-	int MRfc822Tokenizer::GetPhrase(crope& phrase, Ptr& p, const Ptr& e)
+	int MRfc822Tokenizer::GetPhrase(Ptr& p, const Ptr& e, crope& phrase)
 	{
 		// phrase = 1*word
 
-		if(!GetWord(phrase, p, e)) {
+		if(!GetWord(p, e, phrase)) {
 			return 0;
 		}
 		// ok, got the 1 word, now append all the others we can
 		crope word;
-		while(GetWord(word, p, e)) {
+		while(GetWord(p, e, word)) {
 			phrase += " ";
 			phrase += word;
 			word = "";
@@ -256,213 +269,253 @@
 // MAddressParser
 //
 
-	int MAddressParser::GetAddressList()
+int MAddressParser::AddrSpec (const crope& text, MAddrSpec& addrspec)
+{
+	Ptr p = text.begin();
+	Ptr e = text.end();
+
+	MAddrSpec as;
+
+	if(!GetAddrSpec(p, e, as))
+		return 0;
+
+	lexer.SkipComments(p, e);
+
+	if(p != e)
+		return 0;
+
+	addrspec = as;
+
+	return 1;
+}
+int MAddressParser::AddrSpecList(const crope& text, MAddrSpecList& mboxlist)
+{
+	return 0;
+}
+int MAddressParser::MailBox (const crope& text, MMailBox& mailbox)
+{
+	Ptr p = text.begin();
+	Ptr e = text.end();
+
+	MMailBox mb;
+
+	if(!GetMailBox(p, e, mb))
+		return 0;
+
+	lexer.SkipComments(p, e);
+
+	if(p != e)
+		return 0;
+
+	mailbox = mb;
+
+	return 1;
+}
+int MAddressParser::MailBoxList (const crope& text, MMailBoxList& mboxlist)
+{
+	return 1;
+}
+#if 0
+int MAddressParser::GetAddressList()
+{
+	// address-list = #(address)
+
+	int ok = 0;
+
+	if(!GetAddress())
+		return 0;
+
+	++ok;
+
+	lexer.SkipComments(p, e);
+
+	while(lexer.GetSpecial(p, e, ','))
 	{
-		// address-list = #(address)
-
-		int ok = 0;
-
-		if(!GetAddress())
-			return 0;
-
-		++ok;
-
-		lexer.SkipComments(p, e);
-
-		while(lexer.GetSpecial(',', p, e))
-		{
-			// Remember that 'a,,b' is a valid list!
-			if(GetAddress())
-				++ok;
-		}
-
-		// A little problem here in that we return the number of
-		// addresses found, but if their was trainling garbage on
-		// in the text, then we'll just be ignoring that.
-
-		return ok;
+		// Remember that 'a,,b' is a valid list!
+		if(GetAddress())
+			++ok;
 	}
-	int MAddressParser::GetAddress()
-	{
-		// address = mailbox / group
 
-		return GetMailBox() || GetGroup();
+	// A little problem here in that we return the number of
+	// addresses found, but if their was trainling garbage on
+	// in the text, then we'll just be ignoring that.
+
+	return ok;
+}
+int MAddressParser::GetAddress()
+{
+	// address = mailbox / group
+
+	return GetMailBox() || GetGroup();
+}
+int MAddressParser::GetGroup()
+{
+	// group = phrase ":" [#mailbox] ";"
+
+	return 0;
+}
+#endif
+int MAddressParser::GetMailBox(Ptr& p, const Ptr& e, MMailBox& mailbox)
+{
+	// mailbox = addr-spec / phrase route-addr
+	//  phrase is called display-name in the revision to RFC 822
+
+	crope display_name;
+	MAddrSpec addrspec;
+
+	// -> addr-spec
+	if(GetAddrSpec(p, e, addrspec)) {
+		mailbox = MMailBox(addrspec);
+
+		return 1;
 	}
-	// Not supported, is it deprecated? If so, I can feel better
-	// about this.
-	int MAddressParser::GetGroup()
-	{
-		// group = phrase ":" [#mailbox] ";"
 
+	// -> phrase route-addr
+	Ptr save = p;
+
+	if(!lexer.GetPhrase(p, e, display_name))
+		return 0;
+
+	if(!GetRouteAddr(p, e, addrspec)) {
+		p = save;
 		return 0;
 	}
-	int MAddressParser::GetMailBox()
-	{
-		// mailbox = addr-spec / phrase route-addr
 
-		crope local_part;
-		crope domain;
-		crope display_name;
+	mailbox = MMailBox(addrspec, display_name);
 
-		// -> addr-spec
-		if(GetAddrSpec(local_part, domain)) {
-			MMailBox mbox(local_part, domain);
-			mailboxes_.push_back(mbox);
+	return 1;
+}
+int MAddressParser::GetRouteAddr(Ptr& p, const Ptr& e, MAddrSpec& addrspec)
+{
+	// route-addr = "<" [route] addr-spec ">"
+	//   The optional route is not supported.
 
-			return 1;
-		}
+	lexer.SkipComments(p, e);
 
-		// -> phrase route-addr
-		Ptr save = p;
+	Ptr save = p;
 
-		if(!lexer.GetPhrase(display_name, p, e))
-			return 0;
+	if(!lexer.GetSpecial(p, e, '<'))
+		return 0;
 
-		if(!GetRouteAddr(local_part, domain)) {
-			p = save;
-			return 0;
-		}
+	MAddrSpec as;
 
-		MMailBox mbox(local_part, domain, display_name);
+	if(!GetAddrSpec(p, e, as)) {
+		p = save;
+		return 0;
+	}
 
-		mailboxes_.push_back(mbox);
+	lexer.SkipComments(p, e);
 
+	if(!lexer.GetSpecial(p, e, '>')) {
+		p = save;
+		return 0;
+	}
+
+	addrspec = as;
+
+	return 1;
+}
+int MAddressParser::GetAddrSpec(Ptr& p, const Ptr& e, MAddrSpec& addrspec)
+{
+	// addr-spec = local-part "@" domain
+
+	Ptr save = p;
+
+	crope local_part;
+
+	if(!GetLocalPart(p, e, local_part))
+		return 0;
+
+	lexer.SkipComments(p, e);
+
+	if(!lexer.GetSpecial(p, e, '@')) {
+		p = save;
+		return 0;
+	}
+
+	crope domain;
+
+	if(!GetDomain(p, e, domain)) {
+		p = save;
+		return 0;
+	}
+
+	addrspec = MAddrSpec(local_part, domain);
+
+	return 1;
+}
+int MAddressParser::GetLocalPart(Ptr& p, const Ptr& e, crope& local_part)
+{
+	// local-part = word *("." word)
+	//   rewrite as ->  word ("." local-part)
+
+	Ptr save = p;
+
+	if(!lexer.GetWord(p, e, local_part)) {
+		p = save;
+		return 0;
+	}
+	// we've got a local-part, but keep looking for more
+
+	save = p;
+
+	lexer.SkipComments(p, e);
+
+	if(!lexer.GetSpecial(p, e, '.')) {
+		p = save;
 		return 1;
 	}
-	int MAddressParser::GetRouteAddr(crope& local_part, crope& domain)
-	{
-		// route-addr = "<" [route] addr-spec ">"
-		//   The optional route is not supported.
+	crope more;
 
-		lexer.SkipComments(p, e);
-
-		Ptr save = p;
-
-		if(!lexer.GetSpecial('<', p, e))
-			return 0;
-
-		crope lp;
-		crope d;
-
-		if(!GetAddrSpec(lp, d)) {
-			p = save;
-			return 0;
-		}
-
-		lexer.SkipComments(p, e);
-
-		if(!lexer.GetSpecial('>', p, e)) {
-			p = save;
-			return 0;
-		}
-
-		local_part = lp;
-		domain = d;
-
+	if(!GetLocalPart(p, e, more)) {
+		p = save;
 		return 1;
 	}
-	int MAddressParser::GetAddrSpec(crope& local_part, crope& domain)
-	{
-		// addr-spec = local-part "@" domain
+	// append more
+	local_part += ".";
+	local_part += more;
 
-		Ptr save = p;
+	return 1;
+}
+int MAddressParser::GetDomain(Ptr& p, const Ptr& e, crope& domain)
+{
+	// domain = sub-domain *("." sub-domain)
+	//  rewrite as -> sub-domain ("." domain)
 
-		crope lp;
+	if(!GetSubDomain(p, e, domain))
+		return 0;
 
-		if(!GetLocalPart(lp))
-			return 0;
+	// we've go the 1, keep looking for more
 
-		lexer.SkipComments(p, e);
+	lexer.SkipComments(p, e);
 
-		if(!lexer.GetSpecial('@', p, e)) {
-			p = save;
-			return 0;
-		}
-
-		crope d;
-
-		if(!GetDomain(d)) {
-			p = save;
-			return 0;
-		}
-
-		local_part = lp;
-		domain = d;
-
+	if(!lexer.GetSpecial(p, e, '.')) {
 		return 1;
 	}
-	int MAddressParser::GetLocalPart(crope& local_part)
-	{
-		// local-part = word *("." word)
-		//   rewrite as ->  word ("." local-part)
 
-		Ptr save = p;
-
-		if(!lexer.GetWord(local_part, p, e)) {
-			p = save;
-			return 0;
-		}
-		// we've got a local-part, but keep looking for more
-
-		save = p;
-
-		lexer.SkipComments(p, e);
-
-		if(!lexer.GetSpecial('.', p, e)) {
-			p = save;
-			return 1;
-		}
-		crope more;
-
-		if(!GetLocalPart(more)) {
-			p = save;
-			return 1;
-		}
-		// append more
-		local_part += ".";
-		local_part += more;
-
+	crope more;
+	if(!GetDomain(p, e, more)) {
 		return 1;
 	}
-	int MAddressParser::GetDomain(crope& domain)
-	{
-		// domain = sub-domain *("." sub-domain)
-		//  rewrite as -> sub-domain ("." domain)
 
-		if(!GetSubDomain(domain))
-			return 0;
+	domain += ".";
+	domain += more;
 
-		// we've go the 1, keep looking for more
+	return 1;
+}
+int MAddressParser::GetSubDomain(Ptr& p, const Ptr& e, crope& sub_domain)
+{
+	// sub-domain = domain-ref / domain-literal
+	//   A domain-literal doesn't appear to be used or useable
+	//	(at least for dotted-quad or DNS style domains),
+	//   so only domain refs are supported.
 
-		lexer.SkipComments(p, e);
+	return GetDomainRef(p, e, sub_domain);
+}
+int MAddressParser::GetDomainRef(Ptr& p, const Ptr& e, crope& domain_ref)
+{
+	// domain-ref = atom
 
-		if(!lexer.GetSpecial('.', p, e)) {
-			return 1;
-		}
-
-		crope more;
-		if(!GetDomain(more)) {
-			return 1;
-		}
-
-		domain += ".";
-		domain += more;
-
-		return 1;
-	}
-	int MAddressParser::GetSubDomain(crope& sub_domain)
-	{
-		// sub-domain = domain-ref / domain-literal
-		//   A domain-literal doesn't appear to be used or useable
-		//	(at least for dotted-quad or DNS style domains),
-		//   so only domain refs are supported.
-
-		return GetDomainRef(sub_domain);
-	}
-	int MAddressParser::GetDomainRef(crope& domain_ref)
-	{
-		// domain-ref = atom
-
-		return lexer.GetAtom(domain_ref, p, e);
-	}
+	return lexer.GetAtom(p, e, domain_ref);
+}
 

@@ -50,6 +50,10 @@ public:
 	int IsLWSPChar(char c) const;
 	int IsSpecial(char c) const;
 	int IsAtomChar(char c) const;
+	int IsQText(char c) const;
+	int IsSmtpQ(char c) const;
+		// SMTP's version of qtext, called <q> in the RFC 821 syntax,
+		// also exludes <LF>
 
 	//
 	// Lexical Analysis - these tokens are all from RFC822,
@@ -57,17 +61,15 @@ public:
 	// implemented.
 	//
 
-	int SkipWs(Ptr& p, const Ptr& e);
-	int GetSpecial(char c, Ptr& p, const Ptr& e);
-	int GetComment(crope& comment, Ptr& p, const Ptr& e);
-	int SkipComments(Ptr& p, const Ptr& e);
-	int GetAtom(crope& atom, Ptr& p, const Ptr& e);
-	int GetQuotedPair(crope& qpair, Ptr& p, const Ptr& e);
-	int GetQuotedString(crope& qstr, Ptr& p, const Ptr& e);
-	int GetWord(crope& word, Ptr& p, const Ptr& e);
-	int GetPhrase(crope& phrase, Ptr& p, const Ptr& e);
-
-private:
+	int SkipWs			(Ptr& p, const Ptr& e);
+	int SkipComments	(Ptr& p, const Ptr& e);
+	int GetSpecial		(Ptr& p, const Ptr& e, char c);
+	int GetComment		(Ptr& p, const Ptr& e, crope& comment);
+	int GetAtom			(Ptr& p, const Ptr& e, crope& atom);
+	int GetQuotedPair	(Ptr& p, const Ptr& e, crope& qpair);
+	int GetQuotedString	(Ptr& p, const Ptr& e, crope& qstr);
+	int GetWord			(Ptr& p, const Ptr& e, crope& word);
+	int GetPhrase		(Ptr& p, const Ptr& e, crope& phrase);
 };
 
 #include <mail++/address.h>
@@ -75,30 +77,17 @@ private:
 class MAddressParser
 {
 public:
-	int Ok() const;
+// Need some kind of error object here.
 
-	int MailBox(MMailBox& mailbox, const crope& text)
-	{
-		text_	= text;
-		p		= text_.begin();
-		e		= text_.end();
+	int AddrSpec	(const crope& text, MAddrSpec& mailbox);
+	int AddrSpecList(const crope& text, MAddrSpecList& mboxlist);
+	int MailBox		(const crope& text, MMailBox& mailbox);
+	int MailBoxList	(const crope& text, MMailBoxList& mboxlist);
 
-		if(GetMailBox())
-		{
-			mailbox = mailboxes_.back();
-			return 1;
-		}
-		return 0;
-	}
 private:
 	MRfc822Tokenizer lexer;
 
 	typedef crope::const_iterator Ptr;
-
-	// the input
-	crope	text_;
-	Ptr		p;
-	Ptr		e;
 
 	// the output
 	MMailBoxList	mailboxes_;
@@ -106,16 +95,20 @@ private:
 	// need a real error reporting object
 	int	ok_;
 
-	int	GetAddressList();
-	int GetAddress();
-	int GetGroup();
-	int GetMailBox();
-	int GetRouteAddr(crope& local_part, crope& domain);
-	int GetAddrSpec(crope& local_part, crope& domain);
-	int GetLocalPart(crope& local_part);
-	int GetDomain(crope& domain);
-	int GetSubDomain(crope& sub_domain);
-	int GetDomainRef(crope& domain_ref);
+// groups aren't supported, so neither is an address that can be a
+// mailbox or a group, or a list of such addresses...
+//	int	GetAddressList();
+//	int GetAddress();
+//	int GetGroup();
+	int GetMailBox		(Ptr& p, const Ptr& e, MMailBox& mailbox);
+	int GetMailBoxList	(Ptr& p, const Ptr& e, MMailBoxList& mailboxes);
+	int GetRouteAddr	(Ptr& p, const Ptr& e, MAddrSpec& addrspec);
+	int GetAddrSpec		(Ptr& p, const Ptr& e, MAddrSpec& addrspec);
+//	int GetAddrSpecList	(Ptr& p, const Ptr& e, MAddrSpecList& addrspecs);
+	int GetLocalPart	(Ptr& p, const Ptr& e, crope& local_part);
+	int GetDomain		(Ptr& p, const Ptr& e, crope& domain);
+	int GetSubDomain	(Ptr& p, const Ptr& e, crope& sub_domain);
+	int GetDomainRef	(Ptr& p, const Ptr& e, crope& domain_ref);
 };
 
 #endif
