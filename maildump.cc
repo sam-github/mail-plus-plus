@@ -9,9 +9,10 @@
 #include <options.h>
 #include <vector>
 
-#include <mail++/msg_822.h>
+#include <mail++/message.h>
 #include <mail++/datetime.h>
 #include <mail++/drums.h>
+#include <mail++/mime.h>
 
 //
 // Options
@@ -23,6 +24,7 @@ const char* optv[] = {
 	"B|body",
 	"H|head",
 	"F|fields",
+	"i:interpret  <field>",
 	"f:field      <field>",
 	0
 };
@@ -107,18 +109,52 @@ int main(int argc, const char* argv[])
 			}
 		  }	break;
 
-		case 'f': {
+		case 'i' : {
 			MAIL
-			cout << "--field: "
-				<< "'" << optarg << "' -> "
-				<< "'" << mail->Head().Field(optarg).Value() << "'" << endl;
-
-			if(strcmp(optarg, "date") == 0) {
+			if(stricmp(optarg, "date") == 0) {
 				MDateTime dt;
 				MDateTimeParser parser;
 				parser.DateTime(mail->Head().Field(optarg).Value(), dt);
-				cout << "parsed as: " << dt.Text() << endl;
+
+				cout << "--interpreted field: "
+					<< "'" << optarg << "' -> "
+					<< "'" << dt.Text() << "'" << endl;
+
+				break;
 			}
+			if(stricmp(optarg, "mime-version") == 0) {
+				MMimeVersion version(mail->Head().Field(optarg).Value());
+
+				cout << "--interpreted field: '" << optarg << "' -> ";
+				if(version)
+					cout << "'" << version.Text() << "'" << endl;
+				else
+					cout << "no such field" << endl;
+
+				break;
+			}
+		  	if(stricmp(optarg, "content-type") == 0) {
+				MContentType content(mail->Head().Field(optarg).Value());
+
+				cout << "--interpreted field: '" << optarg << "' -> ";
+				if(content)
+					cout << "'" << content.Text() << "'" << endl;
+				else
+					cout << "no such field" << endl;
+
+				break;
+			}
+		  }
+		  // drop into the regular field case if field is not interpretable
+
+		case 'f': {
+			MAIL
+			cout << "--field: '" << optarg << "' -> ";
+			if(mail->Head().Field(optarg))
+				cout << "'" << mail->Head().Field(optarg).Value() << "'" << endl;
+			else
+				cout << "no such field" << endl;
+
 		  }	break;
 
 		default:
