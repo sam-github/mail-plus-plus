@@ -20,11 +20,10 @@ private:
 	typedef crope::const_iterator Ptr;
 
 public:
-	//
 	// Character Classification - could be rewritten in a C library
 	// independent way, my system's C library matches the RFC
 	// definitions, but I don't know if that's guaranteed.
-	//
+
 	int IsCHAR(char c) const;
 	int	IsDIGIT(Ptr& p, const Ptr& e) const;
 	int IsCTL(char c) const;
@@ -57,6 +56,7 @@ public:
 
 	// Syntax from B.1, Simple Field Parsing
 	int GetFieldName	(Ptr& p, const Ptr& e, Rope& fieldname);
+	int GetFieldBody	(Ptr& p, const Ptr& e, Rope& fieldbody);
 };
 
 #include <mail++/address.h>

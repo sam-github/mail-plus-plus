@@ -292,11 +292,6 @@ int MRfc822Tokenizer::GetPhrase(Ptr& p, const Ptr& e, crope& phrase)
 int MRfc822Tokenizer::GetFieldName(Ptr& p, const Ptr& e, Rope& fieldname)
 {
 	// field-name = 1*<any CHAR, excluding CTLS, SPACE, and ":"> ":"
-	//
-	// This isn't part of the formal 822 syntax, but it's useful.
-	//
-	// SPACE is defined elsewhere as being only the ' ' character, this
-	// can't possibly be right, it allows tabs!
 
 	Ptr save = p;
 
@@ -331,6 +326,45 @@ int MRfc822Tokenizer::GetFieldName(Ptr& p, const Ptr& e, Rope& fieldname)
 	}
 
 	fieldname = fn;
+
+	return 1;
+}
+int MRfc822Tokenizer::GetFieldBody(Ptr& p, const Ptr& e, Rope& fieldbody)
+{
+	// field-body = *text [CRLF LWSP-char field-body]
+
+	Ptr save = p;
+
+	Rope fb;
+
+	for(;;)
+	{
+		Ptr eol = p;
+		while(eol != e) {
+			char c = *eol;
+			if(eol[0] == '\r' && (eol+1) != e && eol[1] == '\n')
+				break;
+			++eol;
+		}
+		fb.append(p, eol);
+		p = eol;
+		if(eol == e)
+			break; // no more, so we're done
+
+		assert(p[0] == '\r');
+		assert(p[1] == '\n');
+
+		p += 2;
+
+		if(p == e)
+			break; // no more, so we're done
+
+		// check if next line is a continuation line
+		if(*p != ' ' && *p != '\t')
+			break;
+	}
+
+	fieldbody = fb;
 
 	return 1;
 }
