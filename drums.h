@@ -925,47 +925,5 @@ public:
 	}
 };
 
-#if 0
-	#include <mail++/address.h>
-
-	class MAddressParser
-	{
-	public:
-	// Need some kind of error object here.
-
-		int AddrSpec	(const crope& text, MAddrSpec& mailbox);
-		int AddrSpecList(const crope& text, MAddrSpecList& mboxlist);
-		int MailBox		(const crope& text, MMailBox& mailbox);
-		int MailBoxList	(const crope& text, MMailBoxList& mboxlist);
-
-	private:
-		MRfc822Tokenizer lexer;
-
-		typedef crope::const_iterator Ptr;
-
-		// the output
-		MMailBoxList	mailboxes_;
-
-		// need a real error reporting object
-		int	ok_;
-
-	// groups aren't supported, so neither is an address that can be a
-	// mailbox or a group, or a list of such addresses...
-	//	int	GetAddressList();
-	//	int GetAddress();
-	//	int GetGroup();
-		int GetMailBox		(Ptr& p, const Ptr& e, MMailBox& mailbox);
-		int GetMailBoxList	(Ptr& p, const Ptr& e, MMailBoxList& mailboxes);
-		int GetRouteAddr	(Ptr& p, const Ptr& e, MAddrSpec& addrspec);
-		int GetAddrSpec		(Ptr& p, const Ptr& e, MAddrSpec& addrspec);
-	//	int GetAddrSpecList	(Ptr& p, const Ptr& e, MAddrSpecList& addrspecs);
-		int GetLocalPart	(Ptr& p, const Ptr& e, crope& local_part);
-		int GetDomain		(Ptr& p, const Ptr& e, crope& domain);
-		int GetSubDomain	(Ptr& p, const Ptr& e, crope& sub_domain);
-		int GetDomainRef	(Ptr& p, const Ptr& e, crope& domain_ref);
-	};
-
-#endif
-
 #endif
 
