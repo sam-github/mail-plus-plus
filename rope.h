@@ -12,69 +12,22 @@
 
 #include <ctype.h>
 
-/*
-inline void RopeDeleteStr(crope& r)
+inline crope LowerCase(const crope& r)
 {
-	r.delete_c_str();
-}
-inline void RopeDeleteStr(const crope& r)
-{
-	crope& r_ = (crope&) r;
+	crope lower;
 
-	r_.delete_c_str();
-}
-*/
-inline crope& RopeLower(crope& r)
-{
-	crope::iterator p = r.mutable_begin();
-	while(p != r.mutable_end())
+	for(crope::const_iterator p = r.begin(); p != r.end(); ++p)
 	{
-		char orig = *p;
-		char lower = tolower(orig);
-
-		if(orig != lower)
-			*p = lower;
-
-		++p;
+		lower.append(char(tolower(*p)));
 	}
-	return r;
+	return lower;
 }
-inline int RopeCaseCmp(const crope& l, const crope& r)
+inline int CaseCompare(const crope& l, const crope& r)
 {
-	return l.compare(r);
-#if 0
-	int cmp = stricmp(l.c_str(), r.c_str());
+	crope L = LowerCase(l);
+	crope R = LowerCase(r);
 
-	RopeDeleteStr(l);
-	RopeDeleteStr(r);
-
-	return cmp;
-#endif
-#if 0
-	struct CaseCmp
-	{
-		int operator () (char l, char r)
-		{
-			char ls[2] = { l, 0 };
-			char rs[2] = { r, 0 };
-			return stricmp(ls, rs);
-		}
-	};
-
-
-	crope::const_iterator
-		lb = l.begin(),
-		le = l.end(),
-		rb = r.begin(),
-		re = r.end();
-
-	// The following expression is copied from the SGI docs for
-	// lexicographical_compare_3way():
-	return
-		lexicographical_compare(lb,le,rb,re,CaseCmp()) ?
-			-1 : (lexicographical_compare (rb,re,lb,le,CaseCmp()) ?
-				1 : 0);
-#endif
+	return L.compare(R);
 }
 inline istream& operator >> (istream& is, crope& r)
 {
@@ -88,10 +41,26 @@ inline istream& operator >> (istream& is, crope& r)
 
 	return is;
 }
-inline void assign(crope& to, crope::const_iterator b, crope::const_iterator e)
+inline istream& slurp(istream& is, crope& r)
+{
+	while(is.good())
+		is >> r;
+
+	return is;
+}
+inline crope& assign(crope& to, crope::const_iterator b, crope::const_iterator e)
 {
 	to.clear();
 	to.append(b, e);
+
+	return to;
 }
+
+#if 0
+#	define ROUT(X) cout << #X << "(" << __FILE__ << ":" << __LINE__ << ") '" << (X) << "'" << endl;
+#else
+#	define ROUT(X)
+#endif
+
 #endif
 
