@@ -1,17 +1,9 @@
 //
 // Base64 Encoder and Decoder Classes
 //
-// $Id$
-// $Log$
-// Revision 1.2  1999/12/13 03:07:36  sam
-// implemented the decoder
-//
-// Revision 1.1  1999/11/07 17:33:12  sam
-// Initial revision
-//
 
-#ifndef BASE64_H
-#define BASE64_H
+#ifndef M_BASE64_H
+#define M_BASE64_H
 
 struct Base64
 {
@@ -22,9 +14,9 @@ private:
 	/**
 	 * I don't want to have to deal with memory allocation/memory
 	 * allocation failures, so the encoder can buffer space for the
-	 * result of encoding a single character (up to 5 chars can result),
-	 * but the user is responsible for reading the output back after all
-	 * conversions.
+	 * result of encoding/decoding a single character (up to 5 chars
+	 * can result), but the user is responsible for reading the output
+	 * back after all conversions.
 	 */
 	class Buffer
 	{
@@ -69,7 +61,9 @@ public:
 	public:
 		/**
 		* Decoder is constructed in a reset state, ready to begin
-		* decoding a stream of base64 encoded data.
+		* decoding a stream of base64 encoded data. The input stream
+		* must be a multiple of 4 base64 characters, [a-zA-Z0-9+/].
+		* Other characters are ignored.
 		*/
 		Decoder();
 		/**
@@ -88,18 +82,22 @@ public:
 		*/
 		int Pop();
 		/**
-		* Queries whether end-of-stream for the conversion has
-		* been reached. End-of-stream can be detected by the encoder
-		* only when the '=' character is seen in the input stream,
-		* otherwise EOS must be indicated by the user, see Push().
-		* Further, the input stream must be a multiple of 4 base64
-		* characters, [a-zA-Z0-9+/=], this is not.
-		*/
-		int Eos();
-		/**
 		* Resets the state of the decoder,
 		*/
 		void Reset();
+
+	private:
+		/**
+		* Copying of Decoders doesn't make sense, and is not
+		* supported.
+		*/
+		Decoder(const Decoder&);
+
+		/**
+		* Assignment of Decoders doesn't make sense, and is not
+		* supported.
+		*/
+		Decoder& operator = (const Decoder&);
 	};
 
 	/**
@@ -118,30 +116,41 @@ public:
 		int		maxlength; // max number of chars/line
 		int		llength;
 
+		void LlInc()
+		{
+			if(maxlength) {
+				llength++;
+				if(llength == maxlength) {
+					buffer.Push('\r');
+					buffer.Push('\n');
+					llength = 0;
+				}
+			}
+		}
+
 	public:
 		/**
 		* Constructs an encoder with a default line length.
-		* @param maxlength MUAs
-		* tend to encode binary objects with a line length somewhat
-		* shorter than the max allowed by the relevant RFCs, so this
-		* default is somewhat shorter as well.
+		* @param maxlength is the line length of the base64 encoded data,
+		*                  where 0 means don't line wrap.
 		*/
-		Encoder(int maxlength = 59);
+		Encoder(int maxlength = Base64::RFCLL);
 		void Push(int c = Base64::EOS);
 		int Pop();
+		void Reset();
 
 	private:
 		/**
 		* Copying of Encoders doesn't make sense, and is not
 		* supported.
 		*/
-		Encoder(const Encoder& encoder);
+		Encoder(const Encoder&);
 
 		/**
 		* Assignment of Encoders doesn't make sense, and is not
 		* supported.
 		*/
-		Encoder& operator = (const Encoder& encoder);
+		Encoder& operator = (const Encoder&);
 	};
 };
 
