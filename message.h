@@ -47,42 +47,5 @@ public:
 	const	crope&		Text(const crope& text);
 };
 
-/**
-* Convert text (line-oriented data) from LF to cannonical CRLF line endings.
-* The result is not necessarily 7bit, it may need encoding.
-*/
-inline crope MCanonicalizeText(const crope& text)
-{
-	crope canonical;
-
-	for(crope::const_iterator p = text.begin(); p != text.end(); ++p)
-	{
-		if(*p == '\n') {
-			canonical.append('\r');
-		}
-		canonical.append(*p);
-	}
-	// If last line is not LF terminated, do so.
-	if(!canonical.empty() && canonical.back() != '\n') {
-		canonical.append('\r');
-		canonical.append('\n');
-	}
-
-	return canonical;
-}
-
-/**
-* If last character in container is a LF, chop it off.
-*/
-inline crope MCharChop(const crope& line)
-{
-	crope chopped = line;
-
-	if(!chopped.empty() && chopped.back() == '\n')
-		chopped.pop_back();
-
-	return chopped;
-}
-
 #endif
 
