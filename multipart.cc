@@ -8,17 +8,33 @@ const MMultipart::Rope MMultipart::type_ = "multipart";
 
 //	MMultipart();
 MMultipart::MMultipart(const Rope& subtype) :
-	subtype_ (subtype),
-	boundary_	("aaaaaa:aaaaaa:aaaaaa:aaaaaa")
+	subtype_	(subtype),
+	boundary_	("aaaaaa:aaaaaa:aaaaaa:aaaaaa"),
+	preamble_	("This is a multipart message in MIME format.")
 {
 }
 
 	// accessors
-const MMultipart::Rope& MMultipart::Type() const { return type_; }
-const MMultipart::Rope& MMultipart::SubType() const { return subtype_; }
-const MMultipart::Rope& MMultipart::Boundary() const;
-const MMultipart::Rope& MMultipart::Preamble() const;
-int MMultipart::Entities() const { return entities_.size(); }
+const MMultipart::Rope& MMultipart::Type() const
+{
+	return type_;
+}
+const MMultipart::Rope& MMultipart::SubType() const
+{
+	return subtype_;
+}
+const MMultipart::Rope& MMultipart::Boundary() const
+{
+	return boundary_;
+}
+const MMultipart::Rope& MMultipart::Preamble() const
+{
+	return preamble_;
+}
+int MMultipart::Entities() const
+{
+	return entities_.size();
+}
 const MEntity& MMultipart::Entity(int index) const
 {
 	return *(entities_.begin());
