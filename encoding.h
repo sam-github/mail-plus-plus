@@ -21,6 +21,11 @@ inline crope Base64Encode(const crope& in, int ll = Base64::RFCLL)
 			out.push_back(char(o));
 		}
 	}
+	// push end-of-stream to generate trailing b64 encoding
+	encoder.Push();
+	for(int o = encoder.Pop(); o != EOF; o = encoder.Pop()) {
+		out.push_back(char(o));
+	}
 	return out;
 }
 inline crope QuotedPrintableEncode(const crope& in, int ll = Base64::RFCLL)
