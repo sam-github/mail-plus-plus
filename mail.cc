@@ -8,11 +8,12 @@
 #include <iostream.h>
 #include <stdlib.h>
 
-#include <mail++/msg_822.h>
 #include <mail++/address.h>
+#include <mail++/mime.h>
+#include <mail++/message.h>
+#include <mail++/os.h>
 #include <mail++/parse822.h>
 #include <mail++/rfc821.h>
-#include <mail++/os.h>
 
 typedef crope String;
 
@@ -131,6 +132,8 @@ int main(int argc, const char* argv[])
 
 	// Subject:
 
+	// Can I read the subject from /dev/tty?
+
 	if(options.subject.empty() && MOs::IsaTty(0))
 	{
 		crope& subj = options.subject;
@@ -161,6 +164,12 @@ int main(int argc, const char* argv[])
 		MConvertLFToCRLF(body);
 
 		mail.Body(body);
+
+		// need to check to see if encoding is necessary, and set
+		// encoding field if necessary
+
+		MSetMimeVersion(mail);
+		MSetContentType(mail, "text", "plain");
 	}
 
 	if(options.dump)
