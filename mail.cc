@@ -10,8 +10,9 @@
 #include <stdlib.h>
 
 #include <mail++/address.h>
+#include <mail++/application.h>
 #include <mail++/entity.h>
-#include <mail++/istext.h>
+#include <mail++/text.h>
 #include <mail++/mime.h>
 #include <mail++/message.h>
 #include <mail++/multipart.h>
@@ -19,7 +20,6 @@
 #include <mail++/parse822.h>
 #include <mail++/rfc821.h>
 
-typedef crope String;
 typedef crope Rope;
 
 //
@@ -35,7 +35,7 @@ int AtoI(const char* s)
 // Typedefs
 //
 
-typedef vector< String >	StringList;
+typedef vector<Rope>	RopeList;
 
 //
 // Options
@@ -69,38 +69,25 @@ struct TheOptions
 	int				verbosity;
 	int				dump;
 	int				nowait;
-	String			subject;
-	StringList		attachments;
+	Rope			subject;
+	RopeList		attachments;
 	MMailBoxList	to;
 	MMailBoxList	cc;
 	MMailBoxList	bcc;
 	MMailBox		from;
 	MMailBox		replyto;
-	String			mailhost;
+	Rope			mailhost;
 	int				port;
 };
 
 TheOptions options;
-
-int RcptTo(smtp& client, const MMessage& mail, const MMailBoxList& addrs)
-{
-	int count = 0;
-
-	for(MMailBoxList::const_iterator p = addrs.begin();
-		p != addrs.end(); ++p)
-	{
-		client->rcpt(MMailBoxToSmtpPath(*p).c_str());
-
-		++count;
-	}
-	return count;
-}
 
 //
 // Mainline
 //
 
 void ParseOptions(int argc, const char* argv[]);
+int RcptTo(smtp& client, const MMessage& mail, const MMailBoxList& addrs);
 
 int main(int argc, const char* argv[])
 {
@@ -145,15 +132,13 @@ int main(int argc, const char* argv[])
 	}
 	else if(MOs::IsaTty(0))
 	{
-		crope& subj = options.subject;
-
 		// empty test not strictly correct, fails on -s ""
 		cout << "Subject: " << flush;
-		cin >> subj;
+		cin >> options.subject;
 
-		subj = MCharChop(subj);
+		options.subject = ChopChar(options.subject, '\n');
 
-		mail.Head().Field("Subject", subj);
+		mail.Head().Field("Subject", options.subject);
 	}
 
 	//
@@ -162,7 +147,7 @@ int main(int argc, const char* argv[])
 	// any attachments.
 	//
 
-	vector< crope >	parts;
+	vector<Rope>	parts;
 
 	//
 	// Body - stdin is mail body, unless nowait option was selected
@@ -216,28 +201,22 @@ int main(int argc, const char* argv[])
 		//
 		// It would be nice to figure out what the type of the file is.
 
+		MEntity e;
+
 		if(IsUnixText(parts[j]))
 		{
-			crope body = MCanonicalizeText(parts[j]);
+			MText	text("plain", CanonicalizeText(parts[j]));
 
-			ROUT(body)
-
-			MEntity m;
-
-			m.Body(body);
-
-			// The default MIME values are all correct for plain text,
-			// so don't bother setting MIME headers.
-
-//			ROUT(m.Text());
-
-			multipart.Add(m);
+			text.Fill(e);
 		}
 		else
 		{
-//			MSetMimeVersion(mail);
-//			MSetContentType(m, "text", "plain");
+			MApplication app("octet-stream", parts[j]);
+
+			app.Fill(e);
+
 		}
+		multipart.Add(e);
 	}
 
 	// Fill the mail with the multipart, unless there's only one
@@ -279,6 +258,7 @@ int main(int argc, const char* argv[])
 
 	return 0;
 }
+
 void LogOpt(const char* name, const char* value)
 {
 	if(options.verbosity)
@@ -286,6 +266,7 @@ void LogOpt(const char* name, const char* value)
 		cout << name << ": '" << value << "'" << endl;
 	}
 }
+
 void Address(MMailBox& mbox, const char* field, const crope& address)
 {
 	if(!MAddressParser().MailBox(address, mbox)) {
@@ -293,12 +274,28 @@ void Address(MMailBox& mbox, const char* field, const crope& address)
 		exit(1);
 	}
 }
+
 void Address(MMailBoxList& mboxlist, const char* field, const crope& address)
 {
 	MMailBox mbox;
 	Address(mbox, field, address);
 	mboxlist.push_back(mbox);
 }
+
+int RcptTo(smtp& client, const MMessage& mail, const MMailBoxList& addrs)
+{
+	int count = 0;
+
+	for(MMailBoxList::const_iterator p = addrs.begin();
+		p != addrs.end(); ++p)
+	{
+		client->rcpt(MMailBoxToSmtpPath(*p).c_str());
+
+		++count;
+	}
+	return count;
+}
+
 void ParseOptions(int argc, const char* argv[])
 {
 	int			opt;
