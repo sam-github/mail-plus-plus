@@ -1,14 +1,6 @@
 //
 // base64.cc
 //
-// $Id$
-// $Log$
-// Revision 1.4  1999/12/13 03:07:36  sam
-// implemented the decoder
-//
-// Revision 1.3  1999/11/07 17:33:12  sam
-// Repackaged and partially documented.
-//
 
 #include <mail++/base64.h>
 
@@ -80,8 +72,6 @@ static const char base64_encode[] = {
 	/* 63 */	'/',
 	0
 };
-
-
 
 static const int base64_decode[] = {
 	/* Encoding	Value */
@@ -226,7 +216,7 @@ void Base64::Decoder::Push(int c)
 	if(c == Base64::EOS) {
 		// There's not actually anything to do in this case, the
 		// input must be a complete base64 encoded stream, or it
-		// isn't.
+		// isn't decoded correctly.
 	} else {
 		int b = base64_decode[c & 0xff];
 		if(b == 255) {
@@ -266,6 +256,11 @@ int Base64::Decoder::Pop()
 {
 	return buffer.Pop();
 }
+void Base64::Decoder::Reset()
+{
+	// Initialize to just-constructed state.
+	new(this) Decoder;
+}
 Base64::Encoder::Encoder(int maxlength) :
 		chunk		(0),
 		octets		(0),
@@ -293,8 +288,10 @@ void Base64::Encoder::Push(int c)
 		}
 
 		if(chunk != Base64::EOS) {
-			buffer.Push('\r');
-			buffer.Push('\n');
+			if(maxlength) {
+				buffer.Push('\r');
+				buffer.Push('\n');
+			}
 
 			chunk = Base64::EOS;
 		}
@@ -302,33 +299,33 @@ void Base64::Encoder::Push(int c)
 		switch(octets) {
 		case 0:
 			buffer.Push(base64_encode[c >> 2]);
+			LlInc();
 			chunk = c & 0x3;
 			octets = 1;
-			llength++;
 			break;
 		case 1:
 			buffer.Push(base64_encode[(chunk << 4) | (c >> 4)]);
+			LlInc();
 			chunk = c & 0xf;
 			octets = 2;
-			llength++;
 			break;
 		case 2:
 			buffer.Push(base64_encode[(chunk << 2) | (c >> 6)]);
+			LlInc();
 			buffer.Push(base64_encode[c & 0x3f]);
+			LlInc();
 			octets = 0;
-			llength += 2;
 			break;
 		}
-		if(llength > maxlength) {
-			buffer.Push('\r');
-			buffer.Push('\n');
-			llength = 0;
-		}
-
 	}
 }
 int Base64::Encoder::Pop()
 {
 	return buffer.Pop();
+}
+void Base64::Encoder::Reset()
+{
+	// initialize to default state
+	new(this) Encoder(maxlength);
 }
 
