@@ -6,16 +6,21 @@
 #include <smtp.h>
 
 #include <iostream.h>
+#include <fstream.h>
 #include <stdlib.h>
 
 #include <mail++/address.h>
+#include <mail++/entity.h>
+#include <mail++/istext.h>
 #include <mail++/mime.h>
 #include <mail++/message.h>
+#include <mail++/multipart.h>
 #include <mail++/os.h>
 #include <mail++/parse822.h>
 #include <mail++/rfc821.h>
 
 typedef crope String;
+typedef crope Rope;
 
 //
 // Utilities
@@ -130,11 +135,15 @@ int main(int argc, const char* argv[])
 
 	// Bcc:  Not added to the message, that's the "blind" part!
 
-	// Subject:
+	// Subject: Read from stdin if it's a tty, and not provided.
 
 	// Can I read the subject from /dev/tty?
 
-	if(options.subject.empty() && MOs::IsaTty(0))
+	if(!options.subject.empty())
+	{
+		mail.Head().Field("Subject", options.subject);
+	}
+	else if(MOs::IsaTty(0))
 	{
 		crope& subj = options.subject;
 
@@ -142,35 +151,102 @@ int main(int argc, const char* argv[])
 		cout << "Subject: " << flush;
 		cin >> subj;
 
-		MChopLF(subj);
+		subj = MCharChop(subj);
+
+		mail.Head().Field("Subject", subj);
 	}
 
-	if(!options.subject.empty())
-		mail.Head().Field("Subject", options.subject);
+	//
+	// Now we collect a vector of mail data, with the first
+	// being that collected from stdin (if allowed), followed by
+	// any attachments.
+	//
+
+	vector< crope >	parts;
 
 	//
-	// Attachments - not currently implemented.
+	// Body - stdin is mail body, unless nowait option was selected
 	//
-
-	// Body - stdin is mail body if nowait not optioned
 
 	if(!options.nowait)
 	{
-		crope body;
+		crope text;
 
 		while(cin) // read until EOF or error
-			cin >> body;
+			cin >> text;
 
-		MConvertLFToCRLF(body);
-
-		mail.Body(body);
-
-		// need to check to see if encoding is necessary, and set
-		// encoding field if necessary
-
-		MSetMimeVersion(mail);
-		MSetContentType(mail, "text", "plain");
+		parts.push_back(text);
 	}
+
+	//
+	// Attachments
+	//
+
+	for(int i = 0; i < options.attachments.size(); ++i)
+	{
+		const Rope& a = options.attachments[i];
+
+		ifstream	file(a.c_str());
+
+		crope text;
+
+		if(!slurp(file, text))
+		{
+			cerr << "read from '" << a << "' failed..." << endl;
+			return 1;
+		}
+		ROUT(text)
+
+		parts.push_back(text);
+	}
+
+	//
+	// Composing the message body.
+	//
+
+	MMultipart multipart("mixed");
+
+	// -- make a multipart
+
+	for(int j = 0; j < parts.size(); ++j)
+	{
+		// Currently classify all attachments as:
+		//	a) Unix text
+		//	b) application/octet-stream
+		//
+		// It would be nice to figure out what the type of the file is.
+
+		if(IsUnixText(parts[j]))
+		{
+			crope body = MCanonicalizeText(parts[j]);
+
+			ROUT(body)
+
+			MEntity m;
+
+			m.Body(body);
+
+			// The default MIME values are all correct for plain text,
+			// so don't bother setting MIME headers.
+
+//			ROUT(m.Text());
+
+			multipart.Add(m);
+		}
+		else
+		{
+//			MSetMimeVersion(mail);
+//			MSetContentType(m, "text", "plain");
+		}
+	}
+
+	// Fill the mail with the multipart, unless there's only one
+	// entity, then fill the mail with that entity.
+
+	if(multipart.Entities())
+		multipart.Fill(mail);
+
+	// Dump the message and exit, if requested.
 
 	if(options.dump)
 	{
@@ -180,7 +256,6 @@ int main(int argc, const char* argv[])
 	}
 
 	// Connect to the server and send the mail via SMTP.
-
 
 	if((options.to.size() + options.cc.size() + options.bcc.size()) == 0)
 	{
