@@ -1,93 +1,23 @@
 //
-// An RFC822 format message
+// RFC822 Mail Message
 //
 
 #ifndef M_MESSAGE_H
 #define M_MESSAGE_H
 
 #include <mail++/rope.h>
-#include <vector>
-
-class MField
-{
-private:
-	typedef crope::const_iterator Ptr;
-
-	crope	name_;
-	crope	value_;
-	crope	text_;
-
-public:
-	MField();
-	MField(const crope& name, const crope& value);
-
-	Ptr Read(const Ptr& begin, const Ptr& end);
-
-	/**
-	* @return the name of the field.
-	*/
-	const crope& Name() const;
-	/**
-	* @return the value of the field, unfolded.
-	*/
-	const crope& Value() const;
-	/**
-	* @return the complete, folded, text of the field (name and value).
-	*/
-	const crope& Text() const;
-
-	int operator == (const MField& r) const;
-	int operator != (const MField& r) const;
-	int operator < (const MField& r) const;
-	int operator > (const MField& r) const;
-	operator const void* () const;
-	operator ! () const;
-
-	/**
-	* The null field, it's name is "".
-	*/
-	static const MField	Null;
-};
-
-class MHeader
-{
-private:
-	typedef vector<MField>	MFields;
-
-	MFields	fields_;
-
-	crope	text_;
-
-	int dirty_;
-
-	void Dirty() { dirty_ = 1; }
-	void Clean() { dirty_ = 0; }
-
-public:
-	MHeader();
-	MHeader(const crope& text);
-
-	// accessors
-	const MField&	Field(int fieldno) const;
-	const MField&	Field(const crope& name) const;
-	const crope&	Text() const;
-	const crope&	Text();
-
-	int IsDirty() const { return dirty_; }
-
-	// modifiers
-	const crope&	Text(const crope& text);
-	const MField&	Field(const crope& name, const crope& value);
-};
+#include <mail++/header.h>
 
 class MMessage
 {
+protected:
+	typedef crope Rope;
+	typedef crope::const_iterator Ptr;
+
 private:
 	MHeader	head_;
 	crope	body_;
 	crope	text_;
-
-	typedef crope::const_iterator Ptr;
 
 	Ptr Search(Ptr b, Ptr e, const char* s)
 	{
@@ -115,43 +45,43 @@ public:
 	// modifiers
 	const	crope&		Body(const crope& body);
 	const	crope&		Text(const crope& text);
-
 };
 
 /**
 * Convert text (line-oriented data) from LF to cannonical CRLF line endings.
 * The result is not necessarily 7bit, it may need encoding.
 */
-inline void MConvertLFToCRLF(crope& text)
+inline crope MCanonicalizeText(const crope& text)
 {
-	// If last line is not LF terminated, do so.
-	if(!text.empty() && text.back() != '\n')
-		text.append('\n');
+	crope canonical;
 
-	for(crope::iterator p = text.mutable_begin();
-		p != text.mutable_end();
-		++p)
+	for(crope::const_iterator p = text.begin(); p != text.end(); ++p)
 	{
-		if(*p == '\n')
-		{
-			text.insert(p, '\r');
-			++p;
+		if(*p == '\n') {
+			canonical.append('\r');
 		}
+		canonical.append(*p);
 	}
+	// If last line is not LF terminated, do so.
+	if(!canonical.empty() && canonical.back() != '\n') {
+		canonical.append('\r');
+		canonical.append('\n');
+	}
+
+	return canonical;
 }
 
 /**
 * If last character in container is a LF, chop it off.
 */
-inline void MChopLF(crope& line)
+inline crope MCharChop(const crope& line)
 {
-	if(line.empty())
-		return;
+	crope chopped = line;
 
-	if(line.back() != '\n')
-		return;
+	if(!chopped.empty() && chopped.back() == '\n')
+		chopped.pop_back();
 
-	line.pop_back();
+	return chopped;
 }
 
 #endif
