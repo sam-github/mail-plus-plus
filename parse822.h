@@ -5,7 +5,7 @@
 #ifndef M_PARSE822_H
 #define M_PARSE822_H
 
-#include <rope>
+#include <mail++/rope.h>
 #include <vector>
 
 /**
