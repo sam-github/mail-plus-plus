@@ -6,6 +6,7 @@
 #define M_PARSE822_H
 
 #include <rope>
+#include <vector>
 
 /**
 * Reads an RFC822 defined lexical token from an input, if some of
@@ -69,8 +70,26 @@ public:
 private:
 };
 
-class MRfc822AddressParser
+#include <mail++/address.h>
+
+class MAddressParser
 {
+public:
+	int Ok() const;
+
+	int MailBox(MMailBox& mailbox, const crope& text)
+	{
+		text_	= text;
+		p		= text_.begin();
+		e		= text_.end();
+
+		if(GetMailBox())
+		{
+			mailbox = mailboxes_.back();
+			return 1;
+		}
+		return 0;
+	}
 private:
 	MRfc822Tokenizer lexer;
 
@@ -82,15 +101,13 @@ private:
 	Ptr		e;
 
 	// the output
-	crope description_;
-	crope local_part_;
-	crope domain_;
+	MMailBoxList	mailboxes_;
 
-	void SetText(const crope& text);
-public:
-	MRfc822AddressParser(const crope& text);
-	int ReadAddress(const crope& text);
-	int ReadAddress();
+	// need a real error reporting object
+	int	ok_;
+
+	int	GetAddressList();
+	int GetAddress();
 	int GetGroup();
 	int GetMailBox();
 	int GetRouteAddr(crope& local_part, crope& domain);

@@ -6,6 +6,7 @@
 #define M_ADDRESS_H
 
 #include <rope>
+#include <vector>
 
 class MAddrSpec
 {
@@ -56,45 +57,94 @@ public:
 class MMailBox
 {
 private:
+	typedef const crope& Rope;
+
+	crope		local_part_;
+	crope		domain_;
+	crope		display_name_;
+
 	crope		text_;
-	crope		phrase_;
-	MAddrSpec	addr_spec_;
 
-public:
-	MMailBox(const MAddrSpec& addr_spec, const crope& phrase = "") :
-		addr_spec_ (addr_spec), phrase_ (phrase)
+	Rope Build()
 	{
-		Text();
-	}
+		text_.clear();
 
-	MMailBox(const crope& addr_spec, const crope& domain, const crope& phrase = "") :
-		addr_spec_ (addr_spec, domain), phrase_ (phrase)
-	{
-	}
-	const MAddrSpec& AddrSpec() const
-	{
-		return addr_spec_;
-	}
-	const crope& Phrase() const
-	{
-		return phrase_;
-	}
-	const crope& Text() const
-	{
-		return text_;
-	}
-	const crope& Text()
-	{
-		text_ = addr_spec_.Text();
-		if(!phrase_.empty())
+		if(!display_name_.empty())
 		{
-			text_ += " (";
-			text_ += phrase_;
-			text_ += ")";
+			text_ += display_name_;
+			text_ += " <";
+		}
+		text_ += local_part_;
+
+		// This isn't RFC compliant, but is a valid address on most
+		// systems.
+		if(!domain_.empty())
+		{
+			text_ += '@';
+			text_ += domain_;
+		}
+
+		if(!display_name_.empty())
+		{
+			text_ += ">";
 		}
 		return text_;
 	}
+public:
+	MMailBox()
+	{
+	}
+	MMailBox(Rope local_part, Rope domain, Rope display_name = "") :
+		local_part_ (local_part), domain_ (domain), display_name_ (display_name)
+	{
+		Build();
+	}
+	Rope LocalPart() const
+	{
+		return local_part_;
+	}
+	Rope Domain() const
+	{
+		return domain_;
+	}
+	Rope DisplayName() const
+	{
+		return display_name_;
+	}
+	Rope Text() const
+	{
+		return text_;
+	}
 };
+
+typedef vector<MMailBox>	MMailBoxList;
+
+template <class T>
+crope MMailBoxListText(T b, T e)
+{
+	crope text;
+
+	while(b != e)
+	{
+		MMailBox mbox = *b;
+
+		if(mbox.Text().empty())
+			continue;
+
+		if(!text.empty())
+			text += ", ";
+
+		text += mbox.Text();
+
+		++b;
+	}
+	return text;
+}
+
+crope MMailBoxListText(const MMailBoxList& list)
+{
+	return MMailBoxListText(list.begin(), list.end());
+}
 
 #endif
 

@@ -5,14 +5,12 @@
 #include <options.h>
 #include <smtp.h>
 
-#include <string>
-#include <vector>
-
 #include <iostream.h>
 #include <stdlib.h>
 
 #include <mail++/msg_822.h>
 #include <mail++/address.h>
+#include <mail++/parse822.h>
 #include <mail++/os.h>
 
 typedef crope String;
@@ -38,10 +36,12 @@ typedef vector< String >	StringList;
 
 const char* optv[] = {
 	"h|help",
-	"v",
-	"s:subject    <subject>",
+	"v|verbose",
+	"d|dump",
+	"s?subject    <subject>",	// optional is used to suppress prompt
 	"a+attach     <attachment>",
 	"n|nowait",
+	"t+to         <to-address>",
 	"c+cc         <cc-address>",
 	"b+bcc        <bcc-address>",
 	"f:from       <from>",
@@ -53,77 +53,34 @@ const char* optv[] = {
 
 struct TheOptions
 {
-	TheOptions() : verbosity(0), nowait(0), mailhost("localhost"), port(25)
+	TheOptions() :
+		verbosity(0), nowait(0), mailhost("localhost"), port(25),
+		from(MOs::UserName(), MOs::HostName(), MOs::Comment())
 	{
-		MMailBox mb(MOs::UserName(), MOs::HostName(), MOs::Comment());
-		addresses.from = mb.Text();
 	}
 
-	int verbosity;
-
-	String subject;
-
-	StringList attachments;
-
-	int	nowait;
-
-	struct
-	{
-		StringList	to;
-		StringList	cc;
-		StringList	bcc;
-		String		from;
-		String		replyto;
-	} addresses;
-
-	String	mailhost;
-	int		port;
+	int				verbosity;
+	int				dump;
+	int				nowait;
+	String			subject;
+	StringList		attachments;
+	MMailBoxList	to;
+	MMailBoxList	cc;
+	MMailBoxList	bcc;
+	MMailBox		from;
+	MMailBox		replyto;
+	String			mailhost;
+	int				port;
 };
 
 TheOptions options;
 
-void Address(MMessage& mail, const StringList& addresses, const crope& fieldname)
+void RcptTo(smtp& client, const MMessage& mail, const MMailBoxList& addrs)
 {
-	if(!addresses.empty())
-	{
-		crope fieldvalue;
-		for(StringList::const_iterator p = addresses.begin();
-			p != addresses.end(); ++p)
-		{
-			//MMailBox mb(*p);
-
-			if(!fieldvalue.empty())
-				fieldvalue += ", ";
-			fieldvalue += *p; // mb.Text();
-		}
-		mail.Head().Field(fieldname, fieldvalue);
-	}
-}
-
-void Address(MMessage& mail, const crope& address, const crope& fieldname)
-{
-
-/*
-	// need to make sure from is a valid address...
-	MMailBox mb(address);
-
-	if(!mb)
-	{
-		cerr << "from field invalid: " << mb.Text() << endl;
-		return 1;
-	}
-*/
-
-	if(!address.empty())
-		mail.Head().Field(fieldname, address);
-}
-
-void RcptTo(smtp& client, const MMessage& mail, const StringList& addrs)
-{
-	for(StringList::const_iterator p = addrs.begin();
+	for(MMailBoxList::const_iterator p = addrs.begin();
 		p != addrs.end(); ++p)
 	{
-		client->rcpt(p->c_str());
+		client->rcpt(p->Text().c_str());
 	}
 }
 
@@ -138,6 +95,33 @@ int main(int argc, const char* argv[])
 	ParseOptions(argc, argv);
 
 	MMessage mail;
+
+	// From:
+
+	mail.Head().Field("From", options.from.Text());
+
+	// Reply-To:
+
+	if(!options.replyto.Text().empty())
+	{
+		mail.Head().Field("Reply-To", options.replyto.Text());
+	}
+
+	// To:
+
+	if(!options.to.empty())
+	{
+		mail.Head().Field("To", MMailBoxListText(options.to));
+	}
+
+	// Cc:
+
+	if(!options.cc.empty())
+	{
+		mail.Head().Field("Cc", MMailBoxListText(options.cc));
+	}
+
+	// Bcc:  Not added to the message, that's the "blind" part!
 
 	// Subject:
 
@@ -154,24 +138,6 @@ int main(int argc, const char* argv[])
 
 	if(!options.subject.empty())
 		mail.Head().Field("Subject", options.subject);
-
-	// From:
-
-	Address(mail, options.addresses.from, "From");
-
-	// Reply-To:
-
-	Address(mail, options.addresses.replyto, "Reply-To");
-
-	// To:
-
-	Address(mail, options.addresses.to, "To");
-
-	// Cc:
-
-	Address(mail, options.addresses.cc, "Cc");
-
-	// Bcc: not added to the message (that's the "blind" part)
 
 	//
 	// Attachments - not currently implemented.
@@ -193,10 +159,12 @@ int main(int argc, const char* argv[])
 
 	// Force build of mail message into text.
 
-	mail.Text();
-
-	// debug dump
-	cout << mail.Text();
+	if(options.dump)
+	{
+		// debug dump
+		cout << mail.Text();
+		return 0;
+	}
 
 	// Connect to the server and send the mail via SMTP.
 
@@ -204,9 +172,11 @@ int main(int argc, const char* argv[])
 
 	client->connect(options.mailhost.c_str(), options.port);
 	client->helo();
-	client->mail(options.addresses.from.c_str());
+	client->mail(options.from.Text().c_str());
 
-	RcptTo(client, mail, options.addresses.to);
+	RcptTo(client, mail, options.to);
+	RcptTo(client, mail, options.cc);
+	RcptTo(client, mail, options.bcc);
 
 	client->data(mail.Text().c_str(), mail.Text().size());
 
@@ -214,7 +184,6 @@ int main(int argc, const char* argv[])
 
 	return 0;
 }
-
 void LogOpt(const char* name, const char* value)
 {
 	if(options.verbosity)
@@ -222,7 +191,19 @@ void LogOpt(const char* name, const char* value)
 		cout << name << ": '" << value << "'" << endl;
 	}
 }
-
+void Address(MMailBox& mbox, const char* field, const crope& address)
+{
+	if(!MAddressParser().MailBox(mbox, address)) {
+		cerr << address << " isn't a valid " << field << " address" << endl;
+		exit(1);
+	}
+}
+void Address(MMailBoxList& mboxlist, const char* field, const crope& address)
+{
+	MMailBox mbox;
+	Address(mbox, field, address);
+	mboxlist.push_back(mbox);
+}
 void ParseOptions(int argc, const char* argv[])
 {
 	int			opt;
@@ -244,12 +225,16 @@ void ParseOptions(int argc, const char* argv[])
 		case 'h':
 			o.usage(cout, "<to-address>...");
 			exit(0);
+		case 'd':
+			LogOpt("dump", "true");
+			options.dump = 1;
+			break;
 		case 'v':
 			options.verbosity++;
 			break;
 		case 's':
 			LogOpt("subject", optarg);
-			options.subject = optarg;
+			options.subject = optarg ? optarg : " ";
 			break;
 		case 'a':
 			LogOpt("attach", optarg);
@@ -261,19 +246,19 @@ void ParseOptions(int argc, const char* argv[])
 			break;
 		case 'c':
 			LogOpt("cc-addr", optarg);
-			options.addresses.cc.push_back(optarg);
+			Address(options.cc, "cc", optarg);
 			break;
 		case 'b':
 			LogOpt("bcc-addr", optarg);
-			options.addresses.bcc.push_back(optarg);
+			Address(options.cc, "bcc", optarg);
 			break;
 		case 'f':
 			LogOpt("from", optarg);
-			options.addresses.from = optarg;
+			Address(options.from, "from", optarg);
 			break;
 		case 'r':
 			LogOpt("replyto-addr", optarg);
-			options.addresses.replyto = optarg;
+			Address(options.replyto, "replyto", optarg);
 			break;
 		case 'm':
 			LogOpt("mailhost", optarg);
@@ -283,9 +268,10 @@ void ParseOptions(int argc, const char* argv[])
 			LogOpt("port", optarg);
 			options.port = AtoI(optarg);
 			break;
+		case 't':
 		case Options::POSITIONAL:
 			LogOpt("to-address", optarg);
-			options.addresses.to.push_back(optarg);
+			Address(options.to, "to", optarg);
 			break;
 
 		// for debugging:

@@ -253,66 +253,86 @@
 	}
 
 //
-// MRfc822AddressParser
+// MAddressParser
 //
 
-	void MRfc822AddressParser::SetText(const crope& text)
+	int MAddressParser::GetAddressList()
 	{
-		text_	= text;
-		p		= text_.begin();
-		e		= text_.end();
-	}
+		// address-list = #(address)
 
-	MRfc822AddressParser::MRfc822AddressParser(const crope& text)
-	{
-		SetText(text);
-	}
-	int MRfc822AddressParser::ReadAddress(const crope& text)
-	{
-		SetText(text);
+		int ok = 0;
 
-		return ReadAddress();
+		if(!GetAddress())
+			return 0;
+
+		++ok;
+
+		lexer.SkipComments(p, e);
+
+		while(lexer.GetSpecial(',', p, e))
+		{
+			// Remember that 'a,,b' is a valid list!
+			if(GetAddress())
+				++ok;
+		}
+
+		// A little problem here in that we return the number of
+		// addresses found, but if their was trainling garbage on
+		// in the text, then we'll just be ignoring that.
+
+		return ok;
 	}
-	int MRfc822AddressParser::ReadAddress()
+	int MAddressParser::GetAddress()
 	{
-		// address:	mailbox / group
+		// address = mailbox / group
 
 		return GetMailBox() || GetGroup();
 	}
-	int MRfc822AddressParser::GetGroup()
+	// Not supported, is it deprecated? If so, I can feel better
+	// about this.
+	int MAddressParser::GetGroup()
 	{
 		// group = phrase ":" [#mailbox] ";"
 
 		return 0;
 	}
-	int MRfc822AddressParser::GetMailBox()
+	int MAddressParser::GetMailBox()
 	{
 		// mailbox = addr-spec / phrase route-addr
 
+		crope local_part;
+		crope domain;
+		crope display_name;
+
 		// -> addr-spec
-		if(GetAddrSpec(local_part_, domain_))
+		if(GetAddrSpec(local_part, domain)) {
+			MMailBox mbox(local_part, domain);
+			mailboxes_.push_back(mbox);
+
 			return 1;
+		}
 
 		// -> phrase route-addr
 		Ptr save = p;
 
-		crope phrase;
-
-		if(!lexer.GetPhrase(phrase, p, e))
+		if(!lexer.GetPhrase(display_name, p, e))
 			return 0;
 
-		if(!GetRouteAddr(local_part_, domain_)) {
+		if(!GetRouteAddr(local_part, domain)) {
 			p = save;
 			return 0;
 		}
 
+		MMailBox mbox(local_part, domain, display_name);
+
+		mailboxes_.push_back(mbox);
+
 		return 1;
 	}
-	int MRfc822AddressParser::GetRouteAddr(crope& local_part, crope& domain)
+	int MAddressParser::GetRouteAddr(crope& local_part, crope& domain)
 	{
 		// route-addr = "<" [route] addr-spec ">"
-		//   The optional route is deprecated in recent RFCs, so
-		//   lets not bother with it.
+		//   The optional route is not supported.
 
 		lexer.SkipComments(p, e);
 
@@ -341,7 +361,7 @@
 
 		return 1;
 	}
-	int MRfc822AddressParser::GetAddrSpec(crope& local_part, crope& domain)
+	int MAddressParser::GetAddrSpec(crope& local_part, crope& domain)
 	{
 		// addr-spec = local-part "@" domain
 
@@ -371,7 +391,7 @@
 
 		return 1;
 	}
-	int MRfc822AddressParser::GetLocalPart(crope& local_part)
+	int MAddressParser::GetLocalPart(crope& local_part)
 	{
 		// local-part = word *("." word)
 		//   rewrite as ->  word ("." local-part)
@@ -404,10 +424,10 @@
 
 		return 1;
 	}
-	int MRfc822AddressParser::GetDomain(crope& domain)
+	int MAddressParser::GetDomain(crope& domain)
 	{
 		// domain = sub-domain *("." sub-domain)
-		//  rewrite as -> sub-domain *("." domain)
+		//  rewrite as -> sub-domain ("." domain)
 
 		if(!GetSubDomain(domain))
 			return 0;
@@ -430,7 +450,7 @@
 
 		return 1;
 	}
-	int MRfc822AddressParser::GetSubDomain(crope& sub_domain)
+	int MAddressParser::GetSubDomain(crope& sub_domain)
 	{
 		// sub-domain = domain-ref / domain-literal
 		//   A domain-literal doesn't appear to be used or useable
@@ -439,7 +459,7 @@
 
 		return GetDomainRef(sub_domain);
 	}
-	int MRfc822AddressParser::GetDomainRef(crope& domain_ref)
+	int MAddressParser::GetDomainRef(crope& domain_ref)
 	{
 		// domain-ref = atom
 
