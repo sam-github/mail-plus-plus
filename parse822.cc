@@ -11,259 +11,329 @@
 // MRfc822Tokenizer
 //
 
-	//
-	// Character Classification - could be rewritten in a C library
-	// independent way, my system's C library matches the RFC
-	// definitions, but I don't know if that's guaranteed.
-	//
-	int MRfc822Tokenizer::IsCHAR(char c) const
-	{
-		return isascii(c);
-	}
-	int MRfc822Tokenizer::IsCTL(char c) const
-	{
-		return iscntrl(c) || c == 127 /* DEL */;
-	}
-	int MRfc822Tokenizer::IsSPACE(char c) const
-	{
-		return c == ' ';
-	}
-	int MRfc822Tokenizer::IsHTAB(char c) const
-	{
-		return c == '\t';
-	}
-	int MRfc822Tokenizer::IsLWSPChar(char c) const
-	{
-		return IsSPACE(c) || IsHTAB(c);
-	}
-	int MRfc822Tokenizer::IsSpecial(char c) const
-	{
-		return strchr("()<>@,;:\\\".[]", c) ? 1 : 0;
-	}
-	int MRfc822Tokenizer::IsAtomChar(char c) const
-	{
-		return IsCHAR(c) && !IsSpecial(c) && !IsSPACE(c) && !IsCTL(c);
-	}
-	int MRfc822Tokenizer::IsQText(char c) const
-	{
-		return IsCHAR(c)
-			&& c != '"'
-			&& c != '\\'
-			&& c != '\r';
-	}
-	int MRfc822Tokenizer::IsSmtpQ(char c) const
-	{
-		return IsQText(c)
-			&& c != '\n';
+//
+// Character Classification - could be rewritten in a C library
+// independent way, my system's C library matches the RFC
+// definitions, but I don't know if that's guaranteed.
+//
+int MRfc822Tokenizer::IsCHAR(char c) const
+{
+	return isascii(c);
+}
+int MRfc822Tokenizer::IsDIGIT(Ptr& p, const Ptr& e) const
+{
+	// DIGIT = <any ASCII decimal digit>
+
+	if(p == e)
+		return 0;
+
+	return isdigit(*p);
+}
+int MRfc822Tokenizer::IsCTL(char c) const
+{
+	return iscntrl(c) || c == 127 /* DEL */;
+}
+int MRfc822Tokenizer::IsSPACE(char c) const
+{
+	return c == ' ';
+}
+int MRfc822Tokenizer::IsHTAB(char c) const
+{
+	return c == '\t';
+}
+int MRfc822Tokenizer::IsLWSPChar(char c) const
+{
+	return IsSPACE(c) || IsHTAB(c);
+}
+int MRfc822Tokenizer::IsSpecial(char c) const
+{
+	return strchr("()<>@,;:\\\".[]", c) ? 1 : 0;
+}
+int MRfc822Tokenizer::IsAtomChar(char c) const
+{
+	return IsCHAR(c) && !IsSpecial(c) && !IsSPACE(c) && !IsCTL(c);
+}
+int MRfc822Tokenizer::IsQText(char c) const
+{
+	return IsCHAR(c)
+		&& c != '"'
+		&& c != '\\'
+		&& c != '\r';
+}
+int MRfc822Tokenizer::IsSmtpQ(char c) const
+{
+	return IsQText(c)
+		&& c != '\n';
+}
+
+//
+// Lexical Analysis - these tokens are all from RFC822,
+// section 3.3, Lexical Tokens, though not all tokens are
+// implemented.
+//
+
+int MRfc822Tokenizer::SkipWs(Ptr& p, const Ptr& e)
+{
+	int ws = 0;
+
+	while((p != e) && IsLWSPChar(*p)) {
+		++ws;
+		++p;
 	}
 
-	//
-	// Lexical Analysis - these tokens are all from RFC822,
-	// section 3.3, Lexical Tokens, though not all tokens are
-	// implemented.
-	//
+	return ws;
+}
+int MRfc822Tokenizer::SkipComments(Ptr& p, const Ptr& e)
+{
+	int comments;
 
-	int MRfc822Tokenizer::SkipWs(Ptr& p, const Ptr& e)
-	{
-		int ws = 0;
+	crope ignored;
 
-		while((p != e) && IsLWSPChar(*p)) {
-			++ws;
-			++p;
-		}
+	while(GetComment(p, e, ignored))
+		comments++;
 
-		return ws;
+	return comments++;
+}
+int MRfc822Tokenizer::GetDigits(Ptr& p, const Ptr& e,
+		int min, int max, int& digits)
+{
+	Ptr save = p;
+
+	crope accum;
+	int i = 0;
+
+	while(IsDIGIT(p, e)) {
+		accum.push_back(*p);
+		++p;
+		++i;
+		if(max != 0 && i == max)
+			break;
 	}
-	int MRfc822Tokenizer::SkipComments(Ptr& p, const Ptr& e)
-	{
-		int comments;
-
-		crope ignored;
-
-		while(GetComment(p, e, ignored))
-			comments++;
-
-		return comments++;
-	}
-	int MRfc822Tokenizer::GetSpecial(Ptr& p, const Ptr& e, char c)
-	{
-		assert(IsSpecial(c));
-
-		SkipWs(p, e); // not comments, they start with a special...
-
-		if((p != e) && *p == c) {
-			++p;
-			return 1;
-		}
+	if(i < min) {
+		p = save;
 		return 0;
 	}
-	int MRfc822Tokenizer::GetComment(Ptr& p, const Ptr& e, crope& comment)
-	{
-		// comment = "(" *(ctext / quoted-pair / comment) ")"
-		// ctext = <any CHAR except "(", ")", "\", & CR, including LWSP>
 
-		if(!GetSpecial(p, e, '('))
-			return 0;
+	digits = atoi(accum.c_str());
 
-		while(p != e)
-		{
-			char c = *p;
+	return 1;
+}
+int MRfc822Tokenizer::GetSpecial(Ptr& p, const Ptr& e, char c)
+{
+	SkipWs(p, e); // not comments, they start with a special...
 
-			if(c == ')') {
-				++p;
-				return 1; // found end-of-comment
-			}
-			else if(c == '(')
-			{
-				GetComment(p, e, comment);
-			}
-			else if(c == '\\')
-			{
-				GetQuotedPair(p, e, comment);
-			}
-			else if(c == '\r')
-			{
-				// invalid character...
-				++invalid_chars_;
-				++p;
-			}
-			else if(IsCHAR(c))
-			{
-				comment.append(c);
-				++p;
-			}
-			else
-			{
-				// invalid character...
-				++invalid_chars_;
-				++p;
-			}
-		}
-		++unterminated_comment_;
-		return 0; // end-of-comment not found
+	if((p != e) && *p == c) {
+		++p;
+		return 1;
 	}
+	return 0;
+}
+int MRfc822Tokenizer::GetComment(Ptr& p, const Ptr& e, crope& comment)
+{
+	// comment = "(" *(ctext / quoted-pair / comment) ")"
+	// ctext = <any CHAR except "(", ")", "\", & CR, including LWSP>
 
-	int MRfc822Tokenizer::GetAtom(Ptr& p, const Ptr& e, crope& atom)
+	if(!GetSpecial(p, e, '('))
+		return 0;
+
+	while(p != e)
 	{
-		// atom = 1*<an atom char>
+		char c = *p;
 
-		SkipComments(p, e);
-
-		int ok = 0;
-		while((p != e) && IsAtomChar(*p))
+		if(c == ')') {
+			++p;
+			return 1; // found end-of-comment
+		}
+		else if(c == '(')
 		{
-			++ok;
-			atom.append(*p);
+			GetComment(p, e, comment);
+		}
+		else if(c == '\\')
+		{
+			GetQuotedPair(p, e, comment);
+		}
+		else if(c == '\r')
+		{
+			// invalid character...
 			++p;
 		}
-		return ok;
+		else if(IsCHAR(c))
+		{
+			comment.append(c);
+			++p;
+		}
+		else
+		{
+			// invalid character...
+			++p;
+		}
 	}
-	int MRfc822Tokenizer::GetQuotedPair(Ptr& p, const Ptr& e, crope& qpair)
+	return 0; // end-of-comment not found
+}
+
+int MRfc822Tokenizer::GetAtom(Ptr& p, const Ptr& e, crope& atom)
+{
+	// atom = 1*<an atom char>
+
+	SkipComments(p, e);
+
+	int ok = 0;
+	while((p != e) && IsAtomChar(*p))
 	{
-		// quoted-pair = "\" CHAR
-
-		if(p == e)
-			return 0;
-
-		if(*p != '\\')
-			return 0;
-
+		++ok;
+		atom.append(*p);
 		++p;
-		if(p == e)
-			return 0;
+	}
+	return ok;
+}
+int MRfc822Tokenizer::GetQuotedPair(Ptr& p, const Ptr& e, crope& qpair)
+{
+	// quoted-pair = "\" CHAR
 
-		qpair.append(*p);
+	if(p == e)
+		return 0;
 
-		++p;
+	if(*p != '\\')
+		return 0;
 
+	++p;
+	if(p == e)
+		return 0;
+
+	qpair.append(*p);
+
+	++p;
+
+	return 1;
+}
+int MRfc822Tokenizer::GetQuotedString(Ptr& p, const Ptr& e, crope& qstr)
+{
+	// quoted-string = <"> *(qtext/quoted-pair) <">
+	// qtext = CHAR except <">, "\", & CR, including LWSP-char
+
+	SkipComments(p, e);
+
+	if(!GetSpecial(p, e, '"'))
+		return 0;
+
+	while(p != e)
+	{
+		char c = *p;
+
+		if(c == '"') {
+			++p;
+			return 1; // found end-of-qstr
+		}
+		else if(c == '\\')
+		{
+			GetQuotedPair(p, e, qstr);
+		}
+		else if(c == '\r')
+		{
+			// invalid character...
+			++p;
+		}
+		else if(IsCHAR(c))
+		{
+			qstr.append(c);
+			++p;
+		}
+		else
+		{
+			// invalid character...
+			++p;
+		}
+	}
+	return 0; // end-of-qstr not found
+}
+int MRfc822Tokenizer::GetWord(Ptr& p, const Ptr& e, crope& word)
+{
+	// word = atom / quoted-string
+	SkipComments(p, e);
+
+	Ptr save = p;
+
+	crope qstr;
+	if(GetQuotedString(p, e, qstr)) {
+		word += qstr;
 		return 1;
 	}
-	int MRfc822Tokenizer::GetQuotedString(Ptr& p, const Ptr& e, crope& qstr)
-	{
-		// quoted-string = <"> *(qtext/quoted-pair) <">
-		// qtext = CHAR except <">, "\", & CR, including LWSP-char
 
-		SkipComments(p, e);
+	p = save;
+		// Necessary because the quoted string could have found
+		// a partial string (invalid syntax). Thus reset, the atom
+		// will fail to if the syntax is invalid.
 
-		if(!GetSpecial(p, e, '"'))
-			return 0;
-
-		while(p != e)
-		{
-			char c = *p;
-
-			if(c == '"') {
-				++p;
-				return 1; // found end-of-qstr
-			}
-			else if(c == '\\')
-			{
-				GetQuotedPair(p, e, qstr);
-			}
-			else if(c == '\r')
-			{
-				// invalid character...
-				++p;
-				++invalid_chars_;
-			}
-			else if(IsCHAR(c))
-			{
-				qstr.append(c);
-				++p;
-			}
-			else
-			{
-				// invalid character...
-				++p;
-				++invalid_chars_;
-			}
-		}
-		++unterminated_qstr_;
-		return 0; // end-of-qstr not found
+	crope atom;
+	if(GetAtom(p, e, atom)) {
+		word += atom;
+		return 1;
 	}
-	int MRfc822Tokenizer::GetWord(Ptr& p, const Ptr& e, crope& word)
-	{
-		// word = atom / quoted-string
-		SkipComments(p, e);
+	p = save;
 
-		Ptr save = p;
+	return 0;
+}
+int MRfc822Tokenizer::GetPhrase(Ptr& p, const Ptr& e, crope& phrase)
+{
+	// phrase = 1*word
 
-		crope qstr;
-		if(GetQuotedString(p, e, qstr)) {
-			word += qstr;
-			return 1;
-		}
-
-		p = save;
-			// Necessary because the quoted string could have found
-			// a partial string (invalid syntax). Thus reset, the atom
-			// will fail to if the syntax is invalid.
-
-		crope atom;
-		if(GetAtom(p, e, atom)) {
-			word += atom;
-			return 1;
-		}
-		p = save;
-
+	if(!GetWord(p, e, phrase)) {
 		return 0;
 	}
-	int MRfc822Tokenizer::GetPhrase(Ptr& p, const Ptr& e, crope& phrase)
-	{
-		// phrase = 1*word
-
-		if(!GetWord(p, e, phrase)) {
-			return 0;
-		}
-		// ok, got the 1 word, now append all the others we can
-		crope word;
-		while(GetWord(p, e, word)) {
-			phrase += " ";
-			phrase += word;
-			word = "";
-		}
-		return 1;
+	// ok, got the 1 word, now append all the others we can
+	crope word;
+	while(GetWord(p, e, word)) {
+		phrase += " ";
+		phrase += word;
+		word = "";
 	}
+	return 1;
+}
+int MRfc822Tokenizer::GetFieldName(Ptr& p, const Ptr& e, Rope& fieldname)
+{
+	// field-name = 1*<any CHAR, excluding CTLS, SPACE, and ":"> ":"
+	//
+	// This isn't part of the formal 822 syntax, but it's useful.
+	//
+	// SPACE is defined elsewhere as being only the ' ' character, this
+	// can't possibly be right, it allows tabs!
+
+	Ptr save = p;
+
+	Rope fn;
+
+	while(p != e) {
+		char c = *p;
+
+		if(!IsCHAR(c))
+			break;
+
+		if(IsCTL(c))
+			break;
+		if(IsSPACE(c))
+			break;
+		if(c == ':')
+			break;
+
+		fn.append(c);
+		++p;
+	}
+	// must be at least one char in the field name
+	if(fn.empty()) {
+		p = save;
+		return 0;
+	}
+	SkipComments(p, e);
+
+	if(!GetSpecial(p, e, ':')) {
+		p = save;
+		return 0;
+	}
+
+	fieldname = fn;
+
+	return 1;
+}
 
 //
 // MAddressParser

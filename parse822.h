@@ -16,34 +16,17 @@
 class MRfc822Tokenizer
 {
 private:
+	typedef crope Rope;
 	typedef crope::const_iterator Ptr;
 
-	int	errors_;
-	int	unterminated_qstr_;
-	int unterminated_comment_;
-	int invalid_chars_;
-
 public:
-	int Errors() const { return errors_; }
-
-	int UnterminatedQuotedString() const { return unterminated_qstr_; }
-	int UnterminatedComment() const { return unterminated_comment_; }
-	int InvalidCharacters() const { return invalid_chars_; }
-
-	void ResetErrors()
-	{
-		errors_ = 0;
-		unterminated_qstr_ = 0;
-		unterminated_comment_ = 0;
-		invalid_chars_ = 0;
-	}
-
 	//
 	// Character Classification - could be rewritten in a C library
 	// independent way, my system's C library matches the RFC
 	// definitions, but I don't know if that's guaranteed.
 	//
 	int IsCHAR(char c) const;
+	int	IsDIGIT(Ptr& p, const Ptr& e) const;
 	int IsCTL(char c) const;
 	int IsSPACE(char c) const;
 	int IsHTAB(char c) const;
@@ -63,13 +46,17 @@ public:
 
 	int SkipWs			(Ptr& p, const Ptr& e);
 	int SkipComments	(Ptr& p, const Ptr& e);
+	int GetDigits		(Ptr& p, const Ptr& e, int min, int max, int& digits);
 	int GetSpecial		(Ptr& p, const Ptr& e, char c);
-	int GetComment		(Ptr& p, const Ptr& e, crope& comment);
-	int GetAtom			(Ptr& p, const Ptr& e, crope& atom);
-	int GetQuotedPair	(Ptr& p, const Ptr& e, crope& qpair);
-	int GetQuotedString	(Ptr& p, const Ptr& e, crope& qstr);
-	int GetWord			(Ptr& p, const Ptr& e, crope& word);
-	int GetPhrase		(Ptr& p, const Ptr& e, crope& phrase);
+	int GetComment		(Ptr& p, const Ptr& e, Rope& comment);
+	int GetAtom			(Ptr& p, const Ptr& e, Rope& atom);
+	int GetQuotedPair	(Ptr& p, const Ptr& e, Rope& qpair);
+	int GetQuotedString	(Ptr& p, const Ptr& e, Rope& qstr);
+	int GetWord			(Ptr& p, const Ptr& e, Rope& word);
+	int GetPhrase		(Ptr& p, const Ptr& e, Rope& phrase);
+
+	// Syntax from B.1, Simple Field Parsing
+	int GetFieldName	(Ptr& p, const Ptr& e, Rope& fieldname);
 };
 
 #include <mail++/address.h>
