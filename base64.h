@@ -3,6 +3,9 @@
 //
 // $Id$
 // $Log$
+// Revision 1.2  1999/12/13 03:07:36  sam
+// implemented the decoder
+//
 // Revision 1.1  1999/11/07 17:33:12  sam
 // Initial revision
 //
@@ -16,6 +19,13 @@ private:
 	friend class Encoder;
 	friend class Decoder;
 
+	/**
+	 * I don't want to have to deal with memory allocation/memory
+	 * allocation failures, so the encoder can buffer space for the
+	 * result of encoding a single character (up to 5 chars can result),
+	 * but the user is responsible for reading the output back after all
+	 * conversions.
+	 */
 	class Buffer
 	{
 	public:
@@ -48,9 +58,53 @@ public:
 	*/
 	enum { RFCLL = 76 };
 
+	class Decoder
+	{
+	private:
+		Base64::Buffer buffer;
+
+		int chunk;
+		int sextets;
+
+	public:
+		/**
+		* Decoder is constructed in a reset state, ready to begin
+		* decoding a stream of base64 encoded data.
+		*/
+		Decoder();
+		/**
+		* Push a character into the decoder, the special value EOS
+		* indicates that the stream of characters to be decoded is
+		* complete. Internal buffer space is minimal, so it is required
+		* that the results of a character's decoding be immediately
+		* popped before another character is pushed.
+		* @param c	The character to be pushed, or EOS to indicate the
+		*			end-of-stream.
+		*/
+		void Push(int c = Base64::EOS);
+		/**
+		* Pops the character(s) resulting from the decoding of the last
+		* character pushed into the decoder.
+		*/
+		int Pop();
+		/**
+		* Queries whether end-of-stream for the conversion has
+		* been reached. End-of-stream can be detected by the encoder
+		* only when the '=' character is seen in the input stream,
+		* otherwise EOS must be indicated by the user, see Push().
+		* Further, the input stream must be a multiple of 4 base64
+		* characters, [a-zA-Z0-9+/=], this is not.
+		*/
+		int Eos();
+		/**
+		* Resets the state of the decoder,
+		*/
+		void Reset();
+	};
+
 	/**
 	* Used to encode an 8-bit byte-stream into a base64 encoded 7-bit
-	* ASCII stream, suitable for transit through the internet mail
+	* ASCII stream, suitable for transission through the internet mail
 	* system.
 	*/
 	class Encoder
@@ -67,10 +121,10 @@ public:
 	public:
 		/**
 		* Constructs an encoder with a default line length.
-		* @param maxlength The nMailers
+		* @param maxlength MUAs
 		* tend to encode binary objects with a line length somewhat
 		* shorter than the max allowed by the relevant RFCs, so this
-		* default.
+		* default is somewhat shorter as well.
 		*/
 		Encoder(int maxlength = 59);
 		void Push(int c = Base64::EOS);
@@ -78,7 +132,7 @@ public:
 
 	private:
 		/**
-		* Copy construction of Encoders doesn't make sense, and is not
+		* Copying of Encoders doesn't make sense, and is not
 		* supported.
 		*/
 		Encoder(const Encoder& encoder);

@@ -3,11 +3,14 @@
 //
 // $Id$
 // $Log$
+// Revision 1.4  1999/12/13 03:07:36  sam
+// implemented the decoder
+//
 // Revision 1.3  1999/11/07 17:33:12  sam
 // Repackaged and partially documented.
 //
 
-#include "base64.h"
+#include <mail++/base64.h>
 
 static const char base64_encode[] = {
 	/* Value	Encoding */
@@ -213,7 +216,56 @@ static const int base64_decode[] = {
 	0
 };
 
+Base64::Decoder::Decoder() :
+		chunk		(0),
+		sextets		(0)
+{
+}
+void Base64::Decoder::Push(int c)
+{
+	if(c == Base64::EOS) {
+		// There's not actually anything to do in this case, the
+		// input must be a complete base64 encoded stream, or it
+		// isn't.
+	} else {
+		int b = base64_decode[c & 0xff];
+		if(b == 255) {
+			// If c is not in the base64 alphabet, ignore it. CRLF
+			// pairs and white space are normal, other chars may
+			// indicate a corrupted message, but there's not much
+			// we can do about that.
+			return;
+		}
 
+		switch(sextets) {
+		case 0:
+			chunk = b << 2;
+			sextets = 1;
+			break;
+		case 1:
+			chunk |= b >> 4;
+			buffer.Push(char(	chunk 	));
+			chunk = (b & 0xf) << 4;
+			sextets = 2;
+			break;
+		case 2:
+			chunk |= b >> 2;
+			buffer.Push(char(	chunk	));
+			chunk = (b & 0x3) << 6;
+			sextets = 3;
+			break;
+		case 3:
+			chunk |= b;
+			buffer.Push(char(	chunk 	));
+			sextets = 0;
+			break;
+		}
+	}
+}
+int Base64::Decoder::Pop()
+{
+	return buffer.Pop();
+}
 Base64::Encoder::Encoder(int maxlength) :
 		chunk		(0),
 		octets		(0),
@@ -222,7 +274,6 @@ Base64::Encoder::Encoder(int maxlength) :
 {
 	if(maxlength > Base64::RFCLL) { maxlength = Base64::RFCLL; }
 }
-
 void Base64::Encoder::Push(int c)
 {
 	if(c == Base64::EOS) {
