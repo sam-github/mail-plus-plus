@@ -1,11 +1,11 @@
 //
-// Mail address construction and parsing
+// Mail address 
 //
 
 #ifndef M_ADDRESS_H
 #define M_ADDRESS_H
 
-#include <rope>
+#include <mail++/rope.h>
 #include <vector>
 
 class MMailBox;
@@ -72,8 +72,8 @@ crope MAddressListToText(const MMailBoxList& mailboxes);
 
 // Do I want to provide a quick-and-dirty validity test
 // for addresses?
-int MCheckAddress(const MAddrSpec& addr_spec);
-int MCheckAddress(const MMailBox& mailbox);
+// int MCheckAddress(const MAddrSpec& addr_spec);
+// int MCheckAddress(const MMailBox& mailbox);
 
 /**
 * The syntax of local-part is restrictive; if any special characters

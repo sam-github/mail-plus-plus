@@ -4,6 +4,7 @@
 
 #include <mail++/address.h>
 #include <mail++/parse822.h>
+#include <mail++/quote.h>
 
 //
 // MAddrSpec
@@ -124,7 +125,6 @@ crope MakeList(const T& list)
 	}
 	return text;
 }
-
 crope MAddressListToText(const MAddrSpecList& list)
 {
 	return MakeList(list);
@@ -133,35 +133,13 @@ crope MAddressListToText(const MMailBoxList& list)
 {
 	return MakeList(list);
 }
-
 crope MQuoteLocalPart(const crope& local_part)
 {
 	crope quoted = local_part;
 
-	MRfc822Tokenizer token;
+	MLocalPartQuoter quoter;
 
-	int quoteit = 0;
-	for(
-		crope::iterator p = quoted.mutable_begin();
-		p != quoted.mutable_end();
-		++p)
-	{
-		if(*p == '.')
-			continue; // allowed in local-part
-
-		if(!token.IsAtomChar(*p))
-		{
-			quoteit = 1;
-			// some chars need quoting even in a string...
-			if(!token.IsSmtpQ(*p))
-				quoted.insert(p, '\\');
-		}
-	}
-	if(quoteit)
-	{
-		quoted.push_front('"');
-		quoted.push_back('"');
-	}
+	quoter.Quote(quoted);
 
 	return quoted;
 }
