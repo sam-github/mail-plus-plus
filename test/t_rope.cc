@@ -39,10 +39,15 @@ void t_inc()
 	assert((p + 20) == r.end());
 }
 
+void t_permute()
+{
+}
+
 int main()
 {
 	t_mutable();
 	t_inc();
+	t_permute();
 
 	return 0;
 }
