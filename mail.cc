@@ -3,6 +3,7 @@
 //
 
 #include <options.h>
+#include <smtp.h>
 
 #include <string>
 #include <vector>
@@ -10,8 +11,9 @@
 #include <iostream.h>
 #include <stdlib.h>
 
-#include "msg_822.h"
-#include "m_os.h"
+#include <mail++/msg_822.h>
+#include <mail++/address.h>
+#include <mail++/os.h>
 
 typedef crope String;
 
@@ -51,7 +53,11 @@ const char* optv[] = {
 
 struct TheOptions
 {
-	TheOptions() : verbosity(0) {}
+	TheOptions() : verbosity(0), nowait(0), mailhost("localhost"), port(25)
+	{
+		MMailBox mb(MOs::UserName(), MOs::HostName(), MOs::Comment());
+		addresses.from = mb.Text();
+	}
 
 	int verbosity;
 
@@ -72,10 +78,54 @@ struct TheOptions
 
 	String	mailhost;
 	int		port;
-
 };
 
 TheOptions options;
+
+void Address(MMessage& mail, const StringList& addresses, const crope& fieldname)
+{
+	if(!addresses.empty())
+	{
+		crope fieldvalue;
+		for(StringList::const_iterator p = addresses.begin();
+			p != addresses.end(); ++p)
+		{
+			//MMailBox mb(*p);
+
+			if(!fieldvalue.empty())
+				fieldvalue += ", ";
+			fieldvalue += *p; // mb.Text();
+		}
+		mail.Head().Field(fieldname, fieldvalue);
+	}
+}
+
+void Address(MMessage& mail, const crope& address, const crope& fieldname)
+{
+
+/*
+	// need to make sure from is a valid address...
+	MMailBox mb(address);
+
+	if(!mb)
+	{
+		cerr << "from field invalid: " << mb.Text() << endl;
+		return 1;
+	}
+*/
+
+	if(!address.empty())
+		mail.Head().Field(fieldname, address);
+}
+
+void RcptTo(smtp& client, const MMessage& mail, const StringList& addrs)
+{
+	for(StringList::const_iterator p = addrs.begin();
+		p != addrs.end(); ++p)
+	{
+		client->rcpt(p->c_str());
+	}
+}
 
 //
 // Mainline
@@ -89,6 +139,8 @@ int main(int argc, const char* argv[])
 
 	MMessage mail;
 
+	// Subject:
+
 	if(options.subject.empty() && MOs::IsaTty(0))
 	{
 		crope& subj = options.subject;
@@ -100,16 +152,33 @@ int main(int argc, const char* argv[])
 		MChopLF(subj);
 	}
 
-	mail.Head().Field("Subject", options.subject);
+	if(!options.subject.empty())
+		mail.Head().Field("Subject", options.subject);
 
-	if(options.addresses.from.empty()) {
-		options.addresses.from =
-			crope(MOs::UserName()) + "@" + crope(MOs::HostName());
-	}
-	mail.Head().Field("From", options.addresses.from);
+	// From:
 
+	Address(mail, options.addresses.from, "From");
 
-	// stdin is mail body if nowait not optioned
+	// Reply-To:
+
+	Address(mail, options.addresses.replyto, "Reply-To");
+
+	// To:
+
+	Address(mail, options.addresses.to, "To");
+
+	// Cc:
+
+	Address(mail, options.addresses.cc, "Cc");
+
+	// Bcc: not added to the message (that's the "blind" part)
+
+	//
+	// Attachments - not currently implemented.
+	//
+
+	// Body - stdin is mail body if nowait not optioned
+
 	if(!options.nowait)
 	{
 		crope body;
@@ -122,10 +191,26 @@ int main(int argc, const char* argv[])
 		mail.Body(body);
 	}
 
+	// Force build of mail message into text.
 
-	mail.Head().Field("From", options.addresses.from);
+	mail.Text();
 
+	// debug dump
 	cout << mail.Text();
+
+	// Connect to the server and send the mail via SMTP.
+
+	smtp  client(&cout);
+
+	client->connect(options.mailhost.c_str(), options.port);
+	client->helo();
+	client->mail(options.addresses.from.c_str());
+
+	RcptTo(client, mail, options.addresses.to);
+
+	client->data(mail.Text().c_str(), mail.Text().size());
+
+	client->quit();
 
 	return 0;
 }
@@ -148,7 +233,7 @@ void ParseOptions(int argc, const char* argv[])
 		Options::NOGUESSING	// don't allow abbreviations for long options
 		;
 
-	Options	o(argv[0], optv, Options::PARSE_POS|Options::PLUS);
+	Options	o(argv[0], optv, optctrls);
 
 	OptArgvIter	iter(--argc, ++argv);
 
@@ -219,5 +304,4 @@ void ParseOptions(int argc, const char* argv[])
 		}
 	}
 }
-
 
