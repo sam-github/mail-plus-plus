@@ -3,7 +3,7 @@
 //
 
 #include <mail++/mime.h>
-#include <mail++/msg_822.h>
+#include <mail++/message.h>
 #include <mail++/parse2045.h>
 #include <mail++/quote.h>
 
@@ -288,6 +288,9 @@ int MContentType::Index(const Rope& name) const
 }
 void MContentType::Rewrite()
 {
+	RopeLower(type_);
+	RopeLower(subtype_);
+
 	if(!Write(text_, type_, subtype_, params_)) {
 		*this = Null;
 	}
@@ -468,3 +471,4 @@ const MEncoding MEncoding::E8Bit = "8bit";
 const MEncoding MEncoding::EBinary = "binary";
 const MEncoding MEncoding::EQuotedPrintable = "quoted-printable";
 const MEncoding MEncoding::EBase64 = "base64";
+

@@ -187,14 +187,15 @@ public:
 	const MParameter&	Parameter(const Rope& name, const Rope& value);
 	const Rope&			Text() const;
 
+	int IsType(const crope& type) const { return type.compare(type_) == 0; }
+
 	int operator == (const MContentType& r) const;
 	int operator != (const MContentType& r) const;
 	operator const void* () const;
 	operator ! () const;
 
 	/**
-	* The null version, it's major and minor are 0. Since the
-	* first MIME version is 1.0, this is explicitly invalid.
+	* The null version, it's type and subtype are "".
 	*/
 	static const MContentType Null;
 };
