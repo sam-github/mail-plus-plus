@@ -9,7 +9,7 @@
 #include <options.h>
 #include <vector>
 
-#include "msg_822.h"
+#include <mail++/msg_822.h>
 
 //
 // Options
@@ -39,7 +39,7 @@ int main(int argc, const char* argv[])
 		Options::NOGUESSING	// don't allow abbreviations for long options
 		;
 
-	Options	o(argv[0], optv, Options::PARSE_POS|Options::PLUS);
+	Options	o(argv[0], optv, optctrls);
 
 	if(argc == 1) {
 		o.usage(cout, "");
