@@ -2,7 +2,7 @@
 //
 //
 
-#include "msg_822.h"
+#include <mail++/msg_822.h>
 
 #include <assert.h>
 
