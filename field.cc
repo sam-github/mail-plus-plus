@@ -1,5 +1,5 @@
 //
-//
+// RFC822 Message Header Field
 //
 
 #include <mail++/field.h>

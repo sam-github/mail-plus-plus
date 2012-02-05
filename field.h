@@ -1,5 +1,5 @@
 //
-// An RFC822 header field
+// RFC822 Message Header Field
 //
 
 #ifndef M_FIELD_H
