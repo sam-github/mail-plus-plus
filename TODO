@@ -1,0 +1,82 @@
+
+==> Policy Problems:
+
+- what to do about non-ascii chars in input? They'll fail now, but
+  it's a tiny tweak to allow them.
+- what about output?
+- in general, invalid chars in things such as field-names,
+  etc, should be dealt with how?
+
+==> Need to review other APIs
+
+Get code snippets for these actions:
+
+- reading an mbox?
+- reading a mime message?
+- making a mime message?
+- sending a message?
+- dealing with invalid chars during read?
+- dealing with invalid chars during creation?
+- makeing a mmail clone?
+- classifying files, text/non-text, mime type?
+
+==> Questions:
+
+- do we support signed and unsigned char types?
+
+==> Base64/Quoted Printable
+
+- example usage
+- use buffers, and benchmark
+- ownership of streambuf, delete/don't delete
+
+==> SMTP
+
+- do I need an SMTP specific address class?
+
+==> mmail:
+
+- support octet-stream
+- need content-disposition
+- need encoding
+- configuration: /etc/mmail.conf, ~/.mmailrc, $MMAIL
+
+==> header fields:
+
+- content-id
+- content-md5
+- content-disposition
+
+==> Parsing
+
+- [...]-style addresses, including numbers
+- IPv6 addresses
+- group-style addresses
+- parse domains ending in "."
+- parse phrases with unquoted dots
+- parse the comment after an address as display-name if not found already
+- expand TZ names from those in immhf/date.html
+
+==> Classification and Encoding:
+
+- base64 codec
+- qp codec
+
+==> MIME Multipart
+
+- parse
+- generate better boundaries
+- test against multiparts inside multiparts
+
+==> Mailbox
+
+- mbox reader
+
+==> Release
+
+- rename 'mail' to 'mmail'
+- mmail and maildump in seperate directories
+- Linux build
+- Doxygen doc generation
+- collect relevant rfcs and other docs
+
