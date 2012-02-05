@@ -4,7 +4,7 @@
 //
 
 #include <mail++/rope.h>
-#include <mail++/istext.h>
+#include <mail++/text.h>
 
 #include <iostream.h>
 
