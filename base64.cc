@@ -267,7 +267,7 @@ Base64::Encoder::Encoder(int maxlength) :
 		maxlength	(maxlength),
 		llength		(0)
 {
-	if(maxlength > Base64::RFCLL) { maxlength = Base64::RFCLL; }
+	if(maxlength > Base64::RFCLL) { this->maxlength = Base64::RFCLL; }
 }
 void Base64::Encoder::Push(int c)
 {

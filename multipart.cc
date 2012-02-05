@@ -9,6 +9,8 @@ const MMultipart::Rope MMultipart::type_ = "multipart";
 //	MMultipart();
 MMultipart::MMultipart(const Rope& subtype) :
 	subtype_	(subtype),
+// See RFC2045, p. 21, it recommends using a =_ which can never
+// appear in a quoted printable body.
 	boundary_	("aaaaaa:aaaaaa:aaaaaa:aaaaaa"),
 	preamble_	("This is a multipart message in MIME format.")
 {
